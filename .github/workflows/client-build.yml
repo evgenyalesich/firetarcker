@@ -89,12 +89,12 @@ jobs:
       - name: Build installer (Linux)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
-        run: tools/build_installer_linux.sh "${{ env.BUILD_VERSION }}"
+        run: bash tools/build_installer_linux.sh "${{ env.BUILD_VERSION }}"
 
       - name: Build installer (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
-        run: tools/build_installer_macos.sh "${{ env.BUILD_VERSION }}"
+        run: bash tools/build_installer_macos.sh "${{ env.BUILD_VERSION }}"
 
       - name: Install NSIS (Windows only)
         if: matrix.os == 'windows-latest'

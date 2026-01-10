@@ -27,6 +27,16 @@ $dataArgs = @(
 pyinstaller --noconfirm --clean --name "FireStorm" --onedir --windowed --icon "FireStorm\\img\\gui_icon.ico" @dataArgs "FireStorm\\FireStorm.py"
 
 $nsis = Join-Path $Root "tools\\installer\\windows\\installer.nsi"
-& makensis.exe "/DVERSION=$Version" $nsis
+$makensis = (Get-Command makensis.exe -ErrorAction SilentlyContinue).Path
+if (-not $makensis) {
+  $fallback = "C:\\Program Files (x86)\\NSIS\\makensis.exe"
+  if (Test-Path $fallback) {
+    $makensis = $fallback
+  }
+}
+if (-not $makensis) {
+  throw "makensis.exe not found. Ensure NSIS is installed."
+}
+& $makensis "/DVERSION=$Version" $nsis
 
 Write-Host "OK: $OutDir"
