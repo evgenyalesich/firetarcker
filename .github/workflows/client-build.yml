@@ -26,15 +26,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system deps (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install build deps
-        run: python -m pip install --upgrade pip setuptools wheel cython
+        run: python -m pip install --upgrade pip setuptools wheel cython pyinstaller
+
+      - name: Install client deps
+        run: python -m pip install -r FireStorm/requirements.txt
 
       - name: Compute build version (unix)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
@@ -42,6 +52,17 @@ jobs:
           else
             echo "BUILD_VERSION=$(python -c 'from datetime import datetime; print(datetime.now().strftime(\"%d.%m.%Y\"))')" >> "$GITHUB_ENV"
           fi
+
+      - name: Compute build version (windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $version = $env:GITHUB_REF_NAME -replace "^v", ""
+          } else {
+            $version = (Get-Date).ToString("dd.MM.yyyy")
+          }
+          "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Import GPG key (Ubuntu only)
         if: matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != ''
@@ -53,6 +74,7 @@ jobs:
           fi
 
       - name: Build client + update
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           SIGN_ARGS=""
@@ -64,7 +86,28 @@ jobs:
           fi
           python tools/autobuild.py --version "${{ env.BUILD_VERSION }}" $SIGN_ARGS
 
-      - name: Upload artifacts
+      - name: Build installer (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: tools/build_installer_linux.sh "${{ env.BUILD_VERSION }}"
+
+      - name: Build installer (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: tools/build_installer_macos.sh "${{ env.BUILD_VERSION }}"
+
+      - name: Install NSIS (Windows only)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: choco install nsis -y
+
+      - name: Build installer (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./tools/build_installer_windows.ps1 -Version $env:BUILD_VERSION
+
+      - name: Upload update artifacts (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: firestorm-${{ matrix.os }}-${{ env.BUILD_VERSION }}
@@ -72,6 +115,13 @@ jobs:
             dist_client/**
             update_*.zip
             update_*.zip.asc
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firestorm-installer-${{ matrix.os }}-${{ env.BUILD_VERSION }}
+          path: |
+            dist_installer/**
 
       - name: Deploy update to VPS
         if: matrix.os == 'ubuntu-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''

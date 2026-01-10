@@ -3,6 +3,7 @@
 
 # Virtualenv
 env/
+.venv/
 
 # Python cache
 __pycache__/
@@ -20,6 +21,11 @@ update_v2.zip
 update_*.zip
 update_*.zip.asc
 FireStorm.zip
+dist/
+dist_client/
+dist_installer/
+build/
+*.spec
 
 # Local tools
 *.log

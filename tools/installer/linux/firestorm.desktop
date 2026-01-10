@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=FireStorm
+Comment=FireStorm tracker client
+Exec=/usr/bin/firestorm
+Icon=firestorm
+Terminal=false
+Type=Application
+Categories=Utility;
