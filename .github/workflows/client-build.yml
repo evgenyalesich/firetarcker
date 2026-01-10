@@ -50,7 +50,7 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             echo "BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "BUILD_VERSION=$(python -c 'from datetime import datetime; print(datetime.now().strftime(\"%d.%m.%Y\"))')" >> "$GITHUB_ENV"
+            echo "BUILD_VERSION=$(python -c 'from datetime import datetime; import os; print(f\"{datetime.now().strftime(\"%d.%m.%Y\")}.{os.environ.get(\"GITHUB_RUN_NUMBER\",\"0\")}\")')" >> "$GITHUB_ENV"
           fi
 
       - name: Compute build version (windows)
@@ -60,7 +60,7 @@ jobs:
           if ($env:GITHUB_REF_TYPE -eq "tag") {
             $version = $env:GITHUB_REF_NAME -replace "^v", ""
           } else {
-            $version = (Get-Date).ToString("dd.MM.yyyy")
+            $version = (Get-Date).ToString("dd.MM.yyyy") + "." + $env:GITHUB_RUN_NUMBER
           }
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 

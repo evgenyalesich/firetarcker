@@ -47,7 +47,7 @@ class PokerCheckApp():
             version_path = os.path.join("ver", "ver")
         if os.path.isfile(version_path):
             with open(version_path, "r") as file:
-                self.version = file.readline()
+                self.version = file.readline().strip()
         else:
             self.version = "1.0"
 
@@ -107,9 +107,17 @@ class PokerCheckApp():
             if status == True:
                 print("обновление загружено!")
                 # запускаем ПО для обновления софта
-                python_path = f"{os.path.join(os.path.dirname(os.getcwd()), 'pythonw.exe')}"
-                script_path = f"{os.path.join(os.getcwd(), 'update_installer.py')}"
-                subprocess.Popen([f'{python_path}', script_path], shell=True)
+                base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+                app_dir = os.getenv("FIRESTORM_APP_DIR", base_dir)
+                script_path = os.path.join(base_dir, "update_installer.py")
+                if not os.path.exists(script_path):
+                    script_path = os.path.join(app_dir, "update_installer.py")
+                python_path = sys.executable
+                if sys.platform.startswith("win"):
+                    pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+                    if os.path.exists(pythonw):
+                        python_path = pythonw
+                subprocess.Popen([python_path, script_path], shell=False)
                 os._exit(0)
 
     
@@ -118,6 +126,11 @@ class PokerCheckApp():
             server_version = asyncio.run(http_client.check_update(URL=self.server_url))
             if server_version == None:
                 print("Не удалось получить информацию о обновлениях с сервера!")
+                return
+            server_version = str(server_version).strip()
+            local_version = str(self.version).strip()
+            if server_version == local_version:
+                print("Версия на сервере совпадает с локальной")
                 return
             asyncio.run(http_client.send_log(URL=self.server_url, username="", error=f"Версия ПО пользователя: {self.version}", level='log'))
             if server_version == "":
@@ -144,10 +157,21 @@ class PokerCheckApp():
                 print("app_gui не удалось отправить лог")
             print(f"Ошибка при запросе актуальной версии ПО: {e}")
 
-    def _parse_version_date(self, value):
+    def _parse_version_parts(self, value):
+        value = str(value).strip()
+        if not value:
+            return None
+        pieces = value.split(".")
+        if len(pieces) < 3:
+            return None
+        date_str = ".".join(pieces[:3])
         for fmt in ("%d.%m.%Y", "%d.%m.%y"):
             try:
-                return datetime.strptime(value, fmt)
+                date_val = datetime.strptime(date_str, fmt)
+                build_num = 0
+                if len(pieces) > 3 and pieces[3].isdigit():
+                    build_num = int(pieces[3])
+                return date_val, build_num
             except Exception:
                 continue
         return None
@@ -155,10 +179,12 @@ class PokerCheckApp():
     def _is_newer_version(self, server_version, local_version):
         if not server_version:
             return False
-        s_date = self._parse_version_date(server_version)
-        l_date = self._parse_version_date(local_version)
-        if s_date and l_date:
-            return s_date > l_date
+        s_parts = self._parse_version_parts(server_version)
+        l_parts = self._parse_version_parts(local_version)
+        if s_parts and l_parts:
+            if s_parts[0] != l_parts[0]:
+                return s_parts[0] > l_parts[0]
+            return s_parts[1] > l_parts[1]
         return server_version != local_version
 
     def create_widgets(self):
