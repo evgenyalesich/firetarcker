@@ -17,6 +17,7 @@ mkdir -p "${OUT_DIR}" "${PKG_ROOT}"
 
 python -m pip install --upgrade pip pyinstaller
 python setup.py build_ext --inplace
+echo "${VERSION}" > "${ROOT_DIR}/FireStorm/ver"
 
 pyinstaller \
   --noconfirm \

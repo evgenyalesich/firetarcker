@@ -16,6 +16,7 @@ New-Item -ItemType Directory -Path $OutDir | Out-Null
 
 python -m pip install --upgrade pip pyinstaller
 python setup.py build_ext --inplace
+Set-Content -Path (Join-Path $Root "FireStorm\\ver") -Value $Version
 
 $dataArgs = @(
   "--add-data", "FireStorm\\settings;settings",

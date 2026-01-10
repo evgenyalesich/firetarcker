@@ -1,3 +1,5 @@
+import os
+import sys
 import tkinter as tk
 from tkinter import messagebox
 
@@ -9,7 +11,23 @@ class ProgressBarWindow:
         self.root.geometry(f"{size}x{size}")
         self.root.resizable(False, False)
         self.root.title("Update Downloader")
-        self.root.iconbitmap("img/gui_icon.ico")
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        if sys.platform.startswith("win"):
+            icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
+            if os.path.exists(icon_path):
+                try:
+                    self.root.iconbitmap(icon_path)
+                except Exception:
+                    pass
+        else:
+            icon_path = os.path.join(base_dir, "img", "logo.png")
+            if os.path.exists(icon_path):
+                try:
+                    icon_img = tk.PhotoImage(file=icon_path)
+                    self.root.iconphoto(True, icon_img)
+                    self._icon_img = icon_img
+                except Exception:
+                    pass
         self.canvas = tk.Canvas(self.root, width=size, height=size, bg="#1E1E1E")
         self.canvas.pack()
         self.attempt = 1 # кол-во попыток восстановления соединения

@@ -15,7 +15,8 @@ import modules.http_client as http_client
 import modules.paths_checker as path_checker
 
 # устанавливаем путь к папке с софтом
-os.chdir(os.path.dirname(sys.argv[0]))
+base_dir = os.getenv("FIRESTORM_BASE", os.path.dirname(sys.argv[0]))
+os.chdir(base_dir)
 
 class Window():
     def __init__(self, size):
@@ -33,7 +34,22 @@ class Window():
         self.root.geometry(f"{self.size}x{self.size}")
         self.root.resizable(False, False)
         self.root.title("Uploader")
-        self.root.iconbitmap("img/gui_icon.ico")
+        if sys.platform.startswith("win"):
+            icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
+            if os.path.exists(icon_path):
+                try:
+                    self.root.iconbitmap(icon_path)
+                except Exception:
+                    pass
+        else:
+            icon_path = os.path.join(base_dir, "img", "logo.png")
+            if os.path.exists(icon_path):
+                try:
+                    icon_img = tk.PhotoImage(file=icon_path)
+                    self.root.iconphoto(True, icon_img)
+                    self._icon_img = icon_img
+                except Exception:
+                    pass
         self.canvas = tk.Canvas(self.root, width=self.size, height=self.size, bg="#1E1E1E")
         self.canvas.bind("<Button-1>", self.mouse_click)
         self.canvas.pack()
