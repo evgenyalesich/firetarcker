@@ -163,23 +163,4 @@ jobs:
           scp dist_installer/macos/*.dmg "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/mac/"
 
       - name: Deploy installer to VPS (Windows)
-        if: matrix.os == 'windows-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh" | Out-Null
-          $keyPath = "$env:USERPROFILE\.ssh\id_rsa"
-          Set-Content -Path $keyPath -Value $env:VPS_SSH_KEY
-          ssh -o StrictHostKeyChecking=no "$env:VPS_USER@$env:VPS_HOST" "mkdir -p $env:VPS_PATH/installers/win"
-          $installerDir = Join-Path $PWD "dist_installer/windows"
-          if (-not (Test-Path $installerDir)) {
-            Write-Host "No Windows installer directory, skipping deploy."
-            exit 0
-          }
-          $files = Get-ChildItem -Path (Join-Path $installerDir "*.exe") -ErrorAction SilentlyContinue
-          if (-not $files) {
-            Write-Host "No Windows installer found, skipping deploy."
-            exit 0
-          }
-          foreach ($file in $files) {
-            scp -o StrictHostKeyChecking=no "$($file.FullName)" "$env:VPS_USER@$env:VPS_HOST:$env:VPS_PATH/installers/win/"
-          }
+        if: false
