@@ -1,5 +1,7 @@
 !define APPNAME "FireStorm"
-!define VERSION "${VERSION}"
+!ifndef VERSION
+  !define VERSION "0.0.0"
+!endif
 !define EXE_NAME "FireStorm.exe"
 !define INSTALL_DIR "$PROGRAMFILES\FireStorm"
 

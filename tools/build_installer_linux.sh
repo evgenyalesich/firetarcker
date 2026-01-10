@@ -4,8 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${1:-}"
 if [[ -z "${VERSION}" ]]; then
-  echo "Usage: tools/build_installer_linux.sh <version>"
-  exit 1
+  VERSION="$(date +%d.%m.%Y)"
 fi
 
 DIST_DIR="${ROOT_DIR}/dist"
