@@ -1,1 +1,1 @@
-{"server": "https://s1.firestorm.team", "filetypes": ["txt","xml", "db"], "require_signature": false, "public_key_path": "settings/public.key", "require_manifest": false}
+{"server": "http://176.117.69.41:8080", "filetypes": ["txt","xml","db"], "require_signature": false, "public_key_path": "settings/public.key", "require_manifest": false}
