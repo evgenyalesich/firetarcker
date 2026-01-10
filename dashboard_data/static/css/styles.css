@@ -1,0 +1,592 @@
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #242424;
+  color: #ffffff;
+  margin: 0;
+}
+
+
+
+/*страница неверной авторизации*/
+.do_login {
+  height: 100vh;                     
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.do_login form div {
+    margin: 10px 0; 
+}
+
+
+
+
+
+
+
+
+/*страница авторизации*/
+.login_page {
+  height: 100vh;                     
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0px;
+  padding: 0;
+}
+
+.login_page form {
+  background: #333;                  
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+img {
+  margin-bottom: 20px;              
+}
+.login_page input[type="text"],
+.login_page input[type="password"] {
+  padding: 10px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 4px;
+  width: 100%; 
+}
+.login_page input[type="submit"] {
+  padding: 10px 20px;
+  margin: 10px 0;
+  width: 100%;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;         
+  color: white;
+  cursor: pointer;
+}
+.login_page input[type="submit"]:hover {
+  background-color: #0056b3;         
+}
+
+
+.login_page table {
+  border-collapse: collapse; 
+}
+
+.login_page td {
+  padding: 4px;
+}
+.login_page td:first-child {
+  text-align: right; 
+  padding-right: 10px; 
+}
+.login_page td:last-child {
+  text-align: left; 
+}
+
+
+
+
+
+
+
+
+
+
+
+/*страница таблицы дешборда*/
+
+/*ВКЛАДКИ*/
+.tablinks {
+  padding: 8px;
+  border: 1px solid #ddd;
+  background-color: #4F4F4F; 
+  color: white;
+  border-radius: 4px; 
+  box-sizing: border-box;
+  width: 150px;
+}
+
+.log-window {
+    resize: none;
+    width: 50%; /* Каждый контейнер логов занимает половину ширины */
+    height: 50%; /* Каждый контейнер логов занимает половину высоты */
+    float: left; /* Элементы выстраиваются в линию слева на право */
+    box-sizing: border-box; 
+    background: #333;
+    overflow: auto; /* Добавить прокрутку, если контент выходит за границы */
+}
+
+/* Стиль для заголовка столбца при наведении */
+th.sortable:hover {
+    cursor: pointer;
+    background-color: #333; 
+}
+
+/* Стили для стрелок (треугольников) сортировки */
+.sort-icon {
+    display: inline-block;
+    margin-left: 5px;
+}
+
+.sort-icon:before {
+    content: '\25b2'; /* Треугольник наверх */
+}
+
+.sort-icon.desc:before {
+    content: '\25bc'; /* Треугольник вниз */
+}
+
+.sort-icon.asc:before {
+  content: '\25b2'; /* Треугольник вверх для asc сортировки */
+}
+
+.tabcontent {
+    display: none; /* Не отображаем содержимое всех вкладок по умолчанию */
+    height: calc(100vh - 60px); /* Высота минус отступ */
+    padding-top: 53px; /* Отступ от верхней границы */
+}
+
+.tablinks.active, .tablinks:hover {
+    background: #333;
+}
+
+.log-window {
+    width: 50%;
+    min-height: 150px;
+}
+
+.dashboard_table {
+  padding-top: 66px;
+}
+
+.tabs {
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  z-index: 1000; 
+  background: #333; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+
+}
+/*========*/
+
+/* Индивидуальная стилизация окон логов */
+#debug_log { color: #00BFFF; } /* Голубой */
+#info_log { color: #13C60D; } /* Зелёный */
+#request_log { color: #FFFF00; } /* Желтый */
+#error_log { color: #FF0000; } /* Красный */
+
+#logs:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+/*======================================*/
+
+.custom-date-selector {
+  padding: 8px;
+  margin: 10px; 
+  border: 1px solid #ddd;
+  background-color: #4F4F4F; 
+  color: white;
+  border-radius: 4px; 
+  box-sizing: border-box;
+}
+
+.top-bar {
+  width: 100%;
+  background: #333; 
+/*  padding: 10px 0; */
+  box-sizing: border-box;
+  position: fixed; 
+  top: 45; 
+  left: 0; 
+  z-index: 1000; 
+}
+
+th:nth-child(4) .custom-select {
+  border: 1px solid #ddd; 
+  border-radius: 6px;
+  background-color: #333; 
+  color: white;
+  width: 100%;
+  box-sizing: border-box; 
+  font-family: 'Arial', sans-serif;
+}
+
+th:nth-child(6) .room-select {
+  border: 1px solid #ddd; 
+  border-radius: 6px;
+  background-color: #333; 
+  color: white;
+  width: 100%;
+  box-sizing: border-box; 
+  font-family: 'Arial', sans-serif;
+}
+
+.form-control {
+  border: 1px solid #ddd; 
+  border-radius: 6px;
+  background-color: #333; 
+  color: white;
+/*  width: 10%;*/
+  box-sizing: border-box; 
+  font-family: 'Arial', sans-serif;
+}
+
+.custom-select:focus {
+  border-color: #007bff; 
+}
+
+.room-select {
+  border: 1px solid #ddd; 
+  border-radius: 6px;
+  background-color: #333; 
+  color: white;
+  width: 100%;
+  box-sizing: border-box; 
+  font-family: 'Arial', sans-serif;
+}
+
+table {
+  width: calc(100% - 10px); 
+  margin-left: 5px; 
+}
+
+th, td {
+  padding: 8px;
+  text-align: left;
+}
+
+tr:hover { background-color: #303030; }
+
+th {
+  background-color: #4F4F4F;
+  color: white;
+}
+
+/* стили для столбцов таблицы */
+#users_table {
+  table-layout: fixed;
+  width: calc(100% - 10px);
+}
+
+#users_table td:nth-child(1) {
+  width: 6%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(2) {
+  width: 15%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(3) {
+  width: 8%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(4) {
+  width: 8%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(5) {
+  width: 12%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(6) {
+  width: 12%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(7) {
+  width: 10%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table td:nth-child(8) {
+  width: 10%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* стили для заголовков таблицы */
+#users_table_headers {
+  table-layout: fixed;
+  width: calc(100% - 10px);
+}
+
+
+#users_table_headers th:nth-child(1) {
+  width: 6%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(2) {
+  width: 15%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(3) {
+  width: 8%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(4) {
+  width: 8%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(5) {
+  width: 12%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(6) {
+  width: 12%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(7) {
+  width: 10%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#users_table_headers th:nth-child(8) {
+  width: 10%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+
+
+
+
+/* Стили для users_manager */
+
+h1, h2 {
+    text-align: center;
+    color: #ffffff;
+}
+
+.form-control {
+    background: #4F4F4F;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    margin: 0 10px 20px 0;
+}
+
+.form-control::placeholder {
+    color: #ffffff;
+}
+
+.btn {
+    background: #1e90ff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.btn-outline-success {
+    background: transparent;
+    border: 1px solid #1e90ff;
+    transition: all 0.3s;
+}
+
+.table {
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+.table thead {
+    background: #1e90ff;
+}
+
+.table thead th {
+    padding: 10px;
+    border: none;
+}
+
+.table tbody td {
+    padding: 8px;
+    border-bottom: 1px solid #2d3339;
+}
+
+.btn-primary, .btn-danger {
+    margin-right: 5px;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 14px;
+}
+
+.btn-danger {
+    background: #dc3545;
+}
+
+.btn-primary {
+    background: #007bff;
+}
+
+.close {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: #333;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+
+.user-manager-form input[type="text"]:focus,
+.user-manager-form select.form-control:focus {
+    border-color: #5a6268;
+}
+
+.user-manager-form .btn-outline-success {
+    padding: 10px;
+    margin: 1% auto;
+    width: 26.5%; 
+    border-color: #47FF84;
+    color: #f8f9fa;
+}
+
+.user-manager-form .btn-outline-success:hover {
+    background: #47FF84;
+    border-color: #47FF84;
+}
+
+.user-manager-form {
+  background: #333;                  
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.user-manager-form input[type="text"],
+.user-manager-form select{
+  padding: 10px;
+  margin: 1% auto;
+  border: none;
+  width: 24%; 
+}
+
+.user-manager-form input[type="submit"]:hover {
+  background-color: #0056b3;         
+}
+
+.search-user {
+  padding: 10px;
+  margin: 0% 2%;
+  border: none;
+  width: 96%; 
+}
+
+
+
+
+
+
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 1; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.6);
+    padding-top: 60px;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #32383e;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group {
+    margin: 10px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.form-input, .form-button {
+    margin: 5px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+#editForm button {
+    border: none;
+    width: 33%;
+    border-radius: 4px;
+    padding: 8px 16px;
+    margin-top: 10px;
+    cursor: pointer;
+    background: #1e90ff;
+    color: #fff;
+}
+
+#editForm button:hover {
+    background: #91C8FF;
+}
+
+
+
+
+/* Стилизация кнопки Logout */
+.logout-button-container {
+    position: absolute;
+    right: 0;
+    margin: 8px;
+}
+
+.logout-button {
+    background-color: red;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.logout-button:hover {
+    background-color: darkred;
+}
+
+
+
+
+/* таблица */
+
+.table th:nth-child(1) {
+  width: 5%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.table th:nth-child(2) {
+  width: 25%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.table th:nth-child(3) {
+  width: 25%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.table th:nth-child(4) {
+  width: 25%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.table th:nth-child(5) {
+  width: 20%; 
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

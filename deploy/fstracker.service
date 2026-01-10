@@ -1,0 +1,16 @@
+[Unit]
+Description=FireStorm Tracker Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/evgeny/pokerhub/PROD/server
+EnvironmentFile=/home/evgeny/pokerhub/PROD/server/.env
+ExecStart=/usr/bin/python3 /home/evgeny/pokerhub/PROD/server/server.py
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

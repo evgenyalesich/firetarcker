@@ -1,0 +1,131 @@
+import datetime
+import os
+from urllib.parse import unquote
+
+from aiohttp import web
+import aiofiles
+
+import modules.logger as logger
+from server_app import config, state
+from server_app.security import is_safe_component, normalize_relpath
+from server_app.services.antivirus import scan_file_async, quarantine_file
+from server_app.services.redis_queue import enqueue_antivirus
+
+
+async def handle_upload(request):
+    username = None
+    try:
+        reader = await request.multipart()
+        field = await reader.next()
+        if field is None or not field.filename:
+            return web.Response(status=400)
+        filename = unquote(field.filename)
+        if os.path.basename(filename) != filename:
+            await logger.debug(f'Невалидное имя файла от "{username}": {filename}')
+            return web.Response(status=400)
+        content_length_header = field.headers.get("Content-Length")
+        if content_length_header:
+            try:
+                content_length = int(content_length_header)
+                if content_length > config.MAX_UPLOAD_SIZE:
+                    return web.Response(status=413)
+            except ValueError:
+                return web.Response(status=400)
+
+        data = await request.post()
+        username = data.get("username")
+        room = data.get("room")
+        auth_key = data.get("auth_key")
+        subdirs = data.get("subdirs", "")
+
+        if not is_safe_component(username) or not is_safe_component(room):
+            await logger.debug(
+                f'Невалидные параметры пути: username="{username}", room="{room}"'
+            )
+            return web.Response(status=400)
+        subdirs = normalize_relpath(subdirs)
+        if subdirs is None:
+            await logger.debug(
+                f'Невалидные параметры пути subdirs="{subdirs}" от "{username}"'
+            )
+            return web.Response(status=400)
+
+        if username.lower() not in state.AUTH_USERS:
+            await logger.debug(f'Ключ пользователя "{username}" невлидный!')
+            return web.Response(status=301)
+        if state.AUTH_USERS[username.lower()]["key"] != auth_key:
+            await logger.debug(f'Ключ пользователя "{username}" невлидный!')
+            return web.Response(status=301)
+
+        route = state.AUTH_USERS[username.lower()]["route"]
+        current_date = datetime.date.today()
+        date = current_date.strftime("%Y-%m-%d")
+
+        path = os.path.join(config.FILES_DIR, route, username, room, date, subdirs)
+        os.makedirs(path, exist_ok=True)
+
+        async with state.semaphore:
+            file_path = os.path.join(path, filename)
+            bytes_written = 0
+            async with aiofiles.open(file_path, mode="wb") as f:
+                while True:
+                    chunk = await field.read_chunk()
+                    if not chunk:
+                        break
+                    bytes_written += len(chunk)
+                    if bytes_written > config.MAX_UPLOAD_SIZE:
+                        await f.close()
+                        try:
+                            os.remove(file_path)
+                        except OSError:
+                            pass
+                        return web.Response(status=413)
+                    await f.write(chunk)
+            if config.CLAMAV_ENABLED:
+                if config.REDIS_ENABLED:
+                    enqueue_antivirus(
+                        {
+                            "file_path": file_path,
+                            "route": route,
+                            "username": username,
+                            "room": room,
+                            "date": date,
+                            "subdirs": subdirs,
+                        }
+                    )
+                else:
+                    scan_result = await scan_file_async(file_path)
+                    if scan_result == "infected":
+                        if config.QUARANTINE_ACTION == "ignore":
+                            await logger.info(
+                                f'Файл "{filename}" от "{username}" отмечен как зараженный, но оставлен по политике'
+                            )
+                        elif config.QUARANTINE_ACTION == "delete":
+                            try:
+                                os.remove(file_path)
+                            except OSError:
+                                pass
+                            await logger.info(
+                                f'Файл "{filename}" от "{username}" удалён как зараженный'
+                            )
+                        else:
+                            quarantined = quarantine_file(
+                                file_path, route, username, room, date, subdirs
+                            )
+                            await logger.info(
+                                f'Файл "{filename}" от "{username}" перемещён в карантин: {quarantined}'
+                            )
+                        if config.QUARANTINE_ACTION != "ignore":
+                            return web.Response(status=422)
+                    if scan_result == "error":
+                        await logger.error(
+                            f'Ошибка антивирусной проверки файла "{filename}" от "{username}"'
+                        )
+            await logger.debug(
+                f'Файл "{filename}" от "{username}" принят! Размер файла: {bytes_written} байт!'
+            )
+
+        return web.Response(status=200)
+    except Exception as e:
+        await logger.error(f"Ошибка при загрузке файла от юзера {username}: {e}")
+        return web.Response(status=205)

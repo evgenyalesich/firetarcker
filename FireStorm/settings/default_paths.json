@@ -1,0 +1,12 @@
+{
+    "paths": [
+        {"room": "PokerStars", "path": "{appdata}\\Local\\PokerStars\\HandHistory"},
+        {"room": "PokerKing", "path": "{disk}:\\PokerKing\\handHistory"},
+        {"room": "RedStar", "path": "{appdata}\\Local\\Red Star Poker\\data"},
+        {"room": "Winamax", "path": "{appdata}\\Roaming\\winamax\\documents\\accounts"},
+        {"room": "ACRPoker", "path": "{disk}:\\ACR Poker\\handHistory"},
+        {"room": "888poker", "path": "{documents}\\888poker\\HandHistory"},
+        {"room": "PS.ES", "path": "{appdata}\\Local\\PokerStars.ES\\HandHistory"}
+    ],
+    "last_check": "11-08-2025"
+}

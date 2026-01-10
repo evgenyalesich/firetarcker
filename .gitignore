@@ -1,0 +1,29 @@
+# Env/secrets
+.env
+
+# Virtualenv
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs and runtime data
+logs/
+user_logs/
+notice/
+quarantine/
+
+# Updates/artifacts
+update_v2/
+update_v2.zip
+update_*.zip
+update_*.zip.asc
+FireStorm.zip
+
+# Local tools
+*.log
+
+# IDE
+.vscode/
+.idea/

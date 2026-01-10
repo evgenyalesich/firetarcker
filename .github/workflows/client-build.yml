@@ -1,0 +1,85 @@
+name: Client Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build deps
+        run: python -m pip install --upgrade pip setuptools wheel cython
+
+      - name: Compute build version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "BUILD_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+          else
+            echo "BUILD_VERSION=$(python - <<'PY'
+from datetime import datetime
+print(datetime.now().strftime('%d.%m.%Y'))
+PY
+)" >> $GITHUB_ENV
+          fi
+
+      - name: Import GPG key (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest' && secrets.GPG_PRIVATE_KEY != ''
+        shell: bash
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          if [[ -n "${{ secrets.GPG_KEY_ID }}" ]]; then
+            echo "GPG_KEY_ID=${{ secrets.GPG_KEY_ID }}" >> $GITHUB_ENV
+          fi
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Build client + update
+        shell: bash
+        run: |
+          SIGN_ARGS=""
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && -n "${{ secrets.GPG_PRIVATE_KEY }}" ]]; then
+            SIGN_ARGS="--sign"
+            if [[ -n "${{ secrets.GPG_KEY_ID }}" ]]; then
+              SIGN_ARGS="$SIGN_ARGS --gpg-key ${{ secrets.GPG_KEY_ID }}"
+            fi
+          fi
+          python tools/autobuild.py --version "${{ env.BUILD_VERSION }}" $SIGN_ARGS
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firestorm-${{ matrix.os }}-${{ env.BUILD_VERSION }}
+          path: |
+            dist_client/**
+            update_*.zip
+            update_*.zip.asc
+
+      - name: Deploy update to VPS (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest' && secrets.VPS_HOST != '' && secrets.VPS_SSH_KEY != ''
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          rsync -av update_*.zip update_*.zip.asc "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.VPS_PATH }}"

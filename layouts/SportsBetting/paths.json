@@ -1,0 +1,55 @@
+{
+"Background": {
+	"Carpet_01_pattern": [
+	"SB/data/images/game/Carpet_01.png",
+	"SB/data/images/game/Carpet_01_pattern.png"]
+	,
+	"Carpet_02_pattern": [
+	"SB/data/images/game/Carpet_02.png",
+	"SB/data/images/game/Carpet_02_pattern.png"]
+		}, 
+
+"Cloth color": {
+		"Edge_table": ["SB/data/images/game/Edge_table.png",
+				"SB/data/images/game/Move_table.png",
+				"SB/data/images/game/Move_table_green_final.png"]
+		,
+		"Edge_table_black": ["SB/data/images/game/Edge_table_black.png",
+					"SB/data/images/game/Move_table_black_final.png",
+					"SB/data/images/game/Move_table_black.png"]
+		,
+		"Edge_table_blue": ["SB/data/images/game/Edge_table_blue.png",
+					"SB/data/images/game/Move_table_blue.png",
+					"SB/data/images/game/Move_table_blue_final.png"]
+		,
+		"Edge_table_red": ["SB/data/images/game/Edge_table_red.png",
+					"SB/data/images/game/Move_table_red.png",
+					"SB/data/images/game/Move_table_red_final.png"]
+		}, 
+
+"Back card": {
+		"CARDS_BACK_BLACK": ["SB/data/images/cards/back/SB_black.png",
+			"SB/data/images/cards/back/preview_selector/CARDS_BACK_BLACK.png",
+			"SB/data/images/cards/back/preview_table/CARDS_BACK_BLACK.png"]
+		,
+		"CARDS_BACK_GREEN": ["SB/data/images/cards/back/SB_green.png",
+			"SB/data/images/cards/back/preview_selector/CARDS_BACK_GREEN.png",
+			"SB/data/images/cards/back/preview_table/CARDS_BACK_GREEN.png"]
+		,
+		"CARDS_BACK_RED": ["SB/data/images/cards/back/SB_red.png",
+			"SB/data/images/cards/back/preview_selector/CARDS_BACK_RED.png",
+			"SB/data/images/cards/back/preview_table/CARDS_BACK_RED.png"]
+		,
+		"CARDS_BACK_UNIQUE_1": ["SB/data/images/cards/back/SB_gray.png",
+			"SB/data/images/cards/back/preview_selector/CARDS_BACK_UNIQUE_1.png",
+			"SB/data/images/cards/back/preview_table/CARDS_BACK_UNIQUE_1.png"]
+		},	
+
+"Chips": [], 
+
+"Front card": {
+		"card_103_1": [["commonTG/data/images/cards/deck/fullcolor_gloss_light", "commonTG/data/images/cards/deck/fullcolor_gloss"]],
+		"card_102_1": [["commonTG/data/images/cards/deck/fullcolor_gloss", "commonTG/data/images/cards/deck/fullcolor_gloss"]]
+		}
+
+}

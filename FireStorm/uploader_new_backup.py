@@ -1,0 +1,530 @@
+import os
+import sys
+import psutil
+import asyncio
+import json
+import hashlib
+import tkinter as tk
+from threading import Thread
+import time
+import aiohttp
+from multiprocessing import Manager
+#
+import modules.http_client as http_client
+
+# устанавливаем путь к папке с софтом
+os.chdir(os.path.dirname(sys.argv[0]))
+
+class Window():
+    def __init__(self, size):
+        self.manager = None
+
+        self.pause = 2 # сколько ждём перед закрытием
+        self.size = size
+        self.redraw_interval = 300 # через сколько миллисекунд будем вызывать метод
+
+    def start(self, manager):
+        self.manager = manager
+        self.root = tk.Tk()
+        # установка обработчика события закрытия окна
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.root.geometry(f"{self.size}x{self.size}")
+        self.root.resizable(False, False)
+        self.root.title("Uploader")
+        self.root.iconbitmap("img/gui_icon.ico")
+        self.canvas = tk.Canvas(self.root, width=self.size, height=self.size, bg="#1E1E1E")
+        self.canvas.bind("<Button-1>", self.mouse_click)
+        self.canvas.pack()
+        self.text = None
+        self.canvas_text = None
+        self.arc = None
+        self.persent_text = None
+        self.downloaded = None
+
+        # Планирование первого вызова redraw
+        self.root.after(0, self.redraw)
+        self.root.mainloop()
+
+    def on_closing(self):
+        os._exit(0)
+
+    def mouse_click(self, event):
+        # делает активной "mouse_click"
+        self.manager["mouse_click"] = True
+
+    def redraw(self):
+        # для перерисовки содержимого окна
+        if self.manager["progress"] == None:
+            if self.persent_text != None:
+                self.canvas.delete(self.persent_text)
+                self.persent_text = None
+            if self.downloaded != None:
+                self.canvas.delete(self.downloaded)
+                self.downloaded = None
+            if self.arc != None:
+                self.canvas.delete(self.arc)
+                self.arc = None
+        # вывод временного текста. Обычно это алерты
+        if self.manager["text"] != None and self.text != self.manager["text"]:
+            self.canvas.delete("all")
+            self.text = self.manager["text"]
+            self.canvas_text = self.canvas.create_text(self.size // 2, self.size // 2, text=self.text, font=("Arial", self.manager["size"], "bold"), fill=self.manager["color"], width=self.size)
+        
+        elif self.manager["text"] == None:
+            if self.canvas_text != None:
+                self.canvas.delete(self.canvas_text)
+                self.canvas_text = None
+            else:
+                self.text = None
+
+        if self.manager["downloaded"]:
+            if self.text != None:
+                if self.canvas_text != None:
+                    self.canvas.delete(self.canvas_text)
+                    self.canvas_text = None
+                else:
+                    self.canvas.delete("all")
+                    self.text = None
+
+            # рисуем прогрессбар 
+            x0 = y0 = self.size // 10
+            x1 = y1 = self.size * 9 // 10
+            arc = self.canvas.create_arc(x0, y0, x1, y1, start=90, extent=-359*(self.manager["progress"]/100), style="arc", width=20, outline="#C71B74")
+
+            if self.arc != None:
+                self.canvas.delete(self.arc)
+            self.arc = arc
+
+            if self.persent_text != None:
+                self.canvas.itemconfig(self.persent_text, text=f'{self.manager["progress"]}%')
+            else:
+                self.persent_text = self.canvas.create_text(self.size // 2, self.size // 2-10, text=f'{self.manager["progress"]}%', font=("Arial", 20, "bold"), fill="white")
+
+            if  self.manager["downloaded"] != None:
+                if self.downloaded != None:
+                    self.canvas.itemconfig(self.downloaded, text=f'{self.manager["downloaded"]}')
+                else:
+                    self.downloaded = self.canvas.create_text(self.size // 2, self.size // 2+10, text=f'{self.manager["downloaded"]}', font=("Arial", 10, "bold"), fill="white")
+
+
+
+
+
+        self.text = None
+        print(self.manager) # отслеживаю словарь
+
+        # Планирование следующего вызова redraw через заданный интервал
+        self.root.after(self.redraw_interval, self.redraw)
+
+class HTTP_Client():
+    def __init__(self, manager):
+        self.manager = manager
+        # задаём дефолтные значения
+        self.manager["color"] = "white"
+        self.manager["size"] = 12
+
+        with open("settings/config.json", "r") as file:
+            self.config = json.load(file)
+        self.server_url = self.config["server"]# ip:port сервера
+        self.FILE_TYPES = self.config["filetypes"] # типы файлов, которые будем забирать
+
+        with open("settings/user_data.json", "r") as file:
+            self.user_data = json.load(file)
+        self.username = self.user_data["username"] # логин юзера
+        self.password = self.user_data["password"] # пароль
+
+        with open("settings/services.json", "r") as file:
+            self.services_data = json.load(file)
+        self.rooms = {} # имя рума - список путей к каталогам
+        for room in self.services_data["services"]:
+            if self.services_data["services"][room]["folders"] != [] and self.services_data["services"][room]["track"]:
+                self.rooms[room] = self.services_data["services"][room]["folders"]
+
+        self.show_alert()
+
+
+    def timer_close(self, text="", timer=0):
+        # завершает работу программы по истечении времени
+        for t in range(timer, 0, -1):
+            self.manager["text"] = f"{text}\nВыход через {t}с."
+            time.sleep(1)
+        os._exit(0)
+
+    def click_close(self, text=""):
+        # завершает работу ПО по клику мыши в окне
+        self.manager["text"] = f"{text}\nДля выхода кликните мышкой в этом окне"
+        self.manager["mouse_click"] = False
+        while not self.manager["mouse_click"]:
+            time.sleep(0.1)
+        os._exit(0)
+
+    def show_alert(self):
+        # показ предупреждения
+        self.manager["text"] = "Проверка актуальной версии ПО..."
+        self.manager["color"] = "white"
+
+        if os.path.exists("ver"):
+            with open("ver", "r") as file:
+                self.version = file.readline()
+        else:
+            self.version = "1.0"
+
+        # запрашиваем номер актуальной версии ПО с сервера
+        server_version = asyncio.run(http_client.check_update(URL=self.server_url))
+
+        if server_version == "" or server_version == self.version:
+            # если у юзера последняя версия, то выходим из цикла
+            # выводит сообщение юзеру перед отправкой файлов
+            self.user_accept = False # согласился ли юзер продолжить
+            self.manager["text"] = "ВНИМАНИЕ!\nИспользование этой программы при любом запущенном клиенте\nрума ЗАПРЕЩЕНО!\n\nДля начала отправки нажмите мышкой в это окно."
+            self.manager["color"] = "white"
+
+        elif server_version == 200 or server_version == None:
+            # если ошибка при запросе версии
+            self.manager["color"] = "red"
+            self.click_close(text="Не удалось проверить обновления! Проверьте интернет соединение и перезапустите программу!")
+            return
+
+        elif server_version != self.version:
+            # если ошибка при запросе версии
+            self.manager["color"] = "red"
+            self.click_close(text="Ваша версия ПО устарела!\nЗапустите FireStorm, и загрузите обновление для дальнейшей работы с программой!")
+            return
+
+        self.manager["mouse_click"] = False
+        # пока юзер не нажал ЛКМ, ждём...
+        while not self.manager["mouse_click"]:
+            time.sleep(0.1)
+
+        #
+        self.manager["text"] = "Начинаем сканирование процессов..."
+        self.manager["color"] = "white"
+        # если вышли из цикла - значит юзер принял предупреждение
+        self.accept()
+
+    def accept(self):
+        # метод вызывается, когда юзер принимает ответственность за запуск ПО
+
+        # если найден процесс рума:
+        if check_processes() != False:
+            self.manager["color"] = "red"
+            self.timer_close(text="Найден запущенный процесс рума!\nЗавершение работы программы!", timer=3)
+            
+            return
+
+        # если не указан логин/пароль юзера
+        if not self.username or not self.password:
+            # Запускаем отправку в отдельном потоке, чтобы не блокировать окно
+            self.manager["color"] = "red"
+            self.timer_close(text="Неверный логин или пароль!\nЗапустите FireStorm и проверьте корректность учётных данных!", timer=5)
+            
+            return
+
+        self.manager["text"] = "Попытка авторизации..."
+        self.manager["color"] = "white"
+
+        # если пустой словарь - значит не включен трекинг либо не каталогов
+        if self.rooms == {}:
+            asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error="У клиента неправильно заданы пути к рукам либо выключен трекинг!"))
+            self.manager["color"] = "red"
+            self.click_close(text="Запустите FireStorm и проверьте правильность указанных путей к рукам!")
+
+            return
+        
+        # попытка авторизации
+        try:
+            status = asyncio.run(http_client.autorization(URL=self.server_url, \
+                username=self.username, \
+                password=self.password))
+
+        except aiohttp.ClientConnectorError as e:
+            self.manager["color"] = "red"
+            self.click_close(text="Не удалось авторизоваться!\nОшибка подключения к серверу!\nПопробуйте ещё раз...")
+            return
+
+        else:
+            # проверяем, залогинились-ли мы
+            if status[0] == 205:
+                # если да - записываем ключ аутентификации от сервера
+                self.auth_key = status[-1]
+                self.file_server = status[1] # адрес сервера для приёма файлов
+                self.route = status[2]
+            else:
+                asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error=f"Клиент получил status при авторизации: {str(status)} [server={self.server_url}]!"))        
+                return
+            
+
+            self.manager["text"] = "Сканируем файлы... Подождите"
+            self.manager["color"] = "white"
+            # вызываем сканер файлов
+            self.check_start()
+
+            return
+
+
+    def check_start(self):
+        # проходимся по путям и собираем файлы
+
+        # проверка на запущенные процессы
+        if check_processes() != False:
+            self.manager["color"] = "red"
+            self.timer_close(text="Найден запущенный процесс рума!\nЗавершение работы программы!", timer=3)
+            return
+
+        # если процессы из тех, что прописаны в файле, не запущены, то
+        files = [] # список списков файлов, которые будем по итогу отправлять
+        # проходимся по всем румам и отслеживаемым папкам
+        for srv in self.rooms:
+            room_name = srv
+            dir_list = self.rooms[srv]
+                
+            self.manager["text"] = f"Получаем список файлов на сервере для рума: {room_name}..."
+            self.manager["color"] = "white"
+
+            while True:
+                files_on_server = asyncio.run(http_client.get_files(URL=self.file_server, route=self.route, username=self.username, room=room_name, auth_key=self.auth_key))
+                
+                # если потеряно соединение с сервером
+                if files_on_server == 200:
+                    self.manager["text"] = "Потеряно соединение с сервером...\nПопытка восстановления"
+                    self.manager["color"] = "red"
+                    self.manager["downloaded"] = None
+                    self.manager["progress"] = None
+
+                elif files_on_server == None:
+                    # невалидный ключ
+                    self.auth_key = self.try_log_in()
+                    if self.auth_key == None:
+                        self.manager["text"] = "Ошибка при получении ключа аутентификации!\nПерезапустите программу!"
+                        self.manager["color"] = "red"
+                        return
+                elif files_on_server != 300:
+                    break
+
+                # ждём 3 секунды
+                time.sleep(3)
+
+            # если невалидный ключ авторизации
+            if files_on_server == None:
+                # Запускаем отправку в отдельном потоке, чтобы не блокировать окно
+                self.manager["color"] = "red"
+                self.click_close(text="Ошибка при проверке ключа авторизации!\nПерезапустите программу!")
+                return
+
+                
+            # проходимся по каталогам, которые мониторим
+            self.manager["text"] = f"Определяем, какие файлы рума {room_name} нужно отправить на сервер..."
+            self.manager["color"] = "white"
+
+            for path in dir_list:
+                # получаем список файлов из каталогов (абсолютные пути к файлам)
+                finded_files = self.find_files(path=path)
+
+                # формируем список файлов, которые нужно отправить на сервер (которых там ещё нет)
+                finded_files_set = set(map(tuple, finded_files))
+                files_on_server = set(map(tuple, files_on_server))
+                need_to_send = list(finded_files_set - files_on_server)
+
+                if need_to_send == [()] or need_to_send == []:
+                    continue
+
+                # записываем список [имя_рума, осн_путь, [пути_к_файлам]]
+                files.append([room_name, path, need_to_send])
+
+
+        # если есть файлы, которые нужно отправить
+        if files:
+            self.manager["text"] = "Начинаем отправку файлов на сервер..."
+            self.manager["color"] = "white"
+            if self.send_files(files=files) == False:
+                # False возвращается, если найден запущенный процесс рума
+                return
+        
+        else:
+            asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error="Не обнаружено файлов для передачи на сервер! Возможно, файлы были переданы ранее, \
+                        неверно указан каталог с руками, либо файлов рук пока нет в указанном каталоге юзера!", level='log'))
+            self.manager["color"] = "yellow"
+            self.timer_close(text="Не найдено новых файлов для отправки на сервер!", timer=5)
+            return
+
+    def send_files(self, files):
+        # отправляем файлы, которые нужно отправить
+        total_files = 0 # сколько файлов всего нужно отправить
+        current = 0 # какой по счёту файл уже отправили
+        # считаем кол-во файлов для отправки
+        for sublist in files:
+            for item in sublist:
+                if isinstance(item, list):
+                    total_files += len(item)
+        # print(f'Всего нужно отправить файлов: {total_files}')
+        
+        # высчитываем, сколько это в процентах
+        percentage = int(current / total_files * 100)
+        self.manager["downloaded"] = f"{current} из {total_files}"
+        self.manager["text"] = None
+        self.manager["progress"] = percentage
+
+
+        for file in files:
+            for file_path in file[2]:
+                try:
+                    # проверка на запущенные процессы
+                    if check_processes() != False:
+                        self.manager["downloaded"] = None
+                        self.manager["progress"] = None
+                        self.manager["color"] = "red"
+                        self.timer_close(text="Найден запущенный процесс рума!\nЗавершение работы программы!", timer=3)
+                        return False
+
+                    while True:
+                        status = asyncio.run(http_client.upload_file(URL=self.file_server, route=self.route, filename=os.path.join(file[1], file_path[0]), username=self.username, room=file[0], auth_key=self.auth_key, sub_dirs=os.path.dirname(file_path[0])))
+                        # если потеряно соединение с сервером
+                        if status == 200:
+                            self.manager["text"] =  f"Нет соединения с сервером!\nПроверьте интернет-соединение!\nЕсли в течении 3-х минут соединение не восстановится, перезапустите ПО!"
+                            self.manager["color"] = "red"
+                            self.manager["downloaded"] = None
+                            self.manager["progress"] = None
+
+                        elif status == None:
+                            # невалидный ключ
+                            self.auth_key = self.try_log_in()
+                            if self.auth_key == None:
+                                return
+                        elif status != 300:
+                            break
+
+                        # ждём 3 секунды
+                        time.sleep(3)
+
+                    if status == None:
+                        # Запускаем отправку в отдельном потоке, чтобы не блокировать окно
+                        self.manager["downloaded"] = None
+                        self.manager["progress"] = None
+                        self.manager["color"] = "red"
+                        self.timer_close(text="Ошибка при проверке ключа авторизации!\nПерезапустите программу!", timer=5)
+                        return
+                        
+                    current += 1
+                    percentage = int(current / total_files * 100)
+                    self.manager["text"] = None
+                    self.manager["downloaded"] = f"{current} из {total_files}"
+                    self.manager["progress"] = percentage
+
+
+
+                except aiohttp.ClientConnectorError as e:
+                    print(f"Ошибка соединения с сервером: {e}")
+                except Exception as e:
+                    current += 1
+                    print(f"Ошибка отправки файла: {e}")
+
+
+        if len(files) > 0:
+            print("Готово!")
+        #
+        self.manager["downloaded"] = None
+        self.manager["progress"] = None
+        self.manager["color"] = "green"
+        self.timer_close(text="Файлы отправлены!", timer=3)
+        return
+
+
+    def try_log_in(self):
+        # попытка авторизации
+        while True:
+            try:
+                status = asyncio.run(http_client.autorization(URL=self.server_url, \
+                    username=self.username, \
+                    password=self.password))
+                # проверяем, залогинились-ли мы
+                if status[0] == 205:
+                    # если да - записываем ключ аутентификации от сервера
+                    self.auth_key = status[-1]
+                    self.file_server = status[1] # адрес сервера для приёма файлов
+                    self.route = status[2]
+                    return self.auth_key
+                # если сервер ответил, что не удалось залогиниться
+                else:
+                    self.manager["color"] = "red"
+                    self.click_close(text="Не удалось авторизоваться!\nОшибка подключения к серверу!\nПопробуйте ещё раз...")
+                    return
+
+
+            except aiohttp.ClientConnectorError as e:
+                print(f"Ошибка соединения с сервером: {e}")
+
+    # функция принимает путь к папке, и возвращает список файлов в ней
+    def find_files(self, path, size_limit=1024):
+        small_files = [] # сюда попадают названия файлов
+        size_limit *= 1024  # переводим килобайты в байты
+
+        if os.path.exists(path):
+            # проходим по всем файлам и подпапкам
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    # если размер файла не превышает предел
+                    if os.path.getsize(full_path) < size_limit or file.lower().endswith('txt'):
+                        # если расширение файла то, что нужно
+                        file_extension = os.path.splitext(file)[1][1:]
+                        if file_extension and file_extension in self.FILE_TYPES:
+                            # добавляем в список файлов относительный путь
+                            relative_path = os.path.relpath(full_path, path)
+
+                            # Вычисляем MD5 контрольную сумму файла
+                            with open(full_path, 'rb') as f:
+                                md5_hash = hashlib.md5()
+                                while chunk := f.read(4096):
+                                    md5_hash.update(chunk)
+                                checksum = md5_hash.hexdigest()
+
+                            small_files.append([relative_path, checksum])
+
+        else:
+            print("Указанный путь не существует")
+        # возвразаем список путей к найденным файлам
+        return small_files
+
+def check_processes():
+    # Проверка запущенных процессов
+
+    # Путь к файлу processes.ini
+    file_path = 'settings/processes.ini'
+    # Чтение содержимого файла
+    with open(file_path, 'r') as file:
+        processes = file.read().splitlines()
+
+    for process in processes:
+        matched_process = next((p.name() for p in psutil.process_iter() if process.lower() in p.name().lower()), None)
+        if matched_process:
+            print(f"Обнаружен процесс {str(matched_process)}! Завершаю работу!")    
+            # заходим в вечный цикл чтобы не отправлялись файлы
+            return str(matched_process)
+        else:
+            return False
+
+def start():
+    # для запуска скрипта
+    main_window = Window(size=220)
+
+    manager = Manager()
+    name_space = manager.dict()
+    name_space["size"] = 12
+    name_space["color"] = "white"
+    name_space["downloaded"] = None
+    name_space["text"] = None
+    name_space["progress"] = 0
+
+    # по дефолту стоит бинд на клик мыши в окно. Когда кликаем - "mouse_click" == True 
+    name_space["mouse_click"] = False # флаг, было-ли выполнено действие юзером (клик мыши в окно)
+
+    with Manager() as manager:
+        
+
+        gui_process = Thread(target=main_window.start, args=(name_space,))
+        gui_process.daemon = False
+        gui_process.start()
+        
+        engine = HTTP_Client(manager=name_space)    
+
+        gui_process.join()
