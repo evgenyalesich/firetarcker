@@ -132,7 +132,42 @@ jobs:
           echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
-          rsync -av update_*.zip "${VPS_USER}@${VPS_HOST}:${VPS_PATH}"
+          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/updates ${VPS_PATH}/installers/linux ${VPS_PATH}/installers/mac ${VPS_PATH}/installers/win"
+          rsync -av update_*.zip "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/"
           if ls update_*.zip.asc >/dev/null 2>&1; then
-            rsync -av update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}"
+            rsync -av update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/"
           fi
+
+      - name: Deploy installer to VPS (Linux)
+        if: startsWith(matrix.os, 'ubuntu') && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
+          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/installers/linux"
+          rsync -av dist_installer/linux/*.deb "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/linux/"
+
+      - name: Deploy installer to VPS (macOS)
+        if: matrix.os == 'macos-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
+          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/installers/mac"
+          scp dist_installer/macos/*.dmg "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/mac/"
+
+      - name: Deploy installer to VPS (Windows)
+        if: matrix.os == 'windows-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh" | Out-Null
+          $keyPath = "$env:USERPROFILE\.ssh\id_rsa"
+          Set-Content -Path $keyPath -Value $env:VPS_SSH_KEY
+          ssh -o StrictHostKeyChecking=no "$env:VPS_USER@$env:VPS_HOST" "mkdir -p $env:VPS_PATH/installers/win"
+          scp -o StrictHostKeyChecking=no dist_installer/windows/*.exe "$env:VPS_USER@$env:VPS_HOST:$env:VPS_PATH/installers/win/"
