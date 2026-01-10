@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -35,7 +35,6 @@ jobs:
         run: python -m pip install --upgrade pip setuptools wheel cython
 
       - name: Compute build version (unix)
-        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
@@ -43,17 +42,6 @@ jobs:
           else
             echo "BUILD_VERSION=$(python -c 'from datetime import datetime; print(datetime.now().strftime(\"%d.%m.%Y\"))')" >> "$GITHUB_ENV"
           fi
-
-      - name: Compute build version (windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          if ($env:GITHUB_REF_TYPE -eq "tag") {
-            $ver = $env:GITHUB_REF_NAME -replace '^v',''
-          } else {
-            $ver = python -c "from datetime import datetime; print(datetime.now().strftime('%d.%m.%Y'))"
-          }
-          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$ver"
 
       - name: Import GPG key (Ubuntu only)
         if: matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != ''
@@ -85,8 +73,8 @@ jobs:
             update_*.zip
             update_*.zip.asc
 
-      - name: Deploy update to VPS (Ubuntu only)
-        if: matrix.os == 'ubuntu-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+      - name: Deploy update to VPS
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
         shell: bash
         run: |
           mkdir -p ~/.ssh
@@ -94,4 +82,7 @@ jobs:
           echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
-          rsync -av update_*.zip update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}"
+          rsync -av update_*.zip "${VPS_USER}@${VPS_HOST}:${VPS_PATH}"
+          if ls update_*.zip.asc >/dev/null 2>&1; then
+            rsync -av update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}"
+          fi
