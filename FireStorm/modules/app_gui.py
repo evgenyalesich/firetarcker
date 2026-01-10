@@ -40,8 +40,11 @@ class PokerCheckApp():
         self.width = width
 
         # если обнаружена обнова, и юзер согласился её скачать, то скачиваем и ставим
-        if os.path.exists("ver"):
-            with open("ver", "r") as file:
+        version_path = "ver"
+        if os.path.isdir(version_path):
+            version_path = os.path.join("ver", "ver")
+        if os.path.isfile(version_path):
+            with open(version_path, "r") as file:
                 self.version = file.readline()
         else:
             self.version = "1.0"
