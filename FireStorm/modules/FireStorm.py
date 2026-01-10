@@ -6,7 +6,11 @@ import json
 import hashlib
 #
 # устанавливаем путь к папке с софтом
-os.chdir(os.path.dirname(sys.argv[0]))
+if getattr(sys, "frozen", False):
+    base_dir = os.path.dirname(sys.executable)
+else:
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+os.chdir(base_dir)
 #
 import modules.app_gui as app_gui
 
@@ -20,7 +24,7 @@ def sha256_file(path):
 
 
 def verify_manifest(required):
-    manifest_path = os.path.join("manifest.json")
+    manifest_path = os.path.join(base_dir, "manifest.json")
     if not os.path.exists(manifest_path):
         if required:
             print("manifest.json не найден. Запуск остановлен.")
@@ -49,7 +53,7 @@ class FireStorm:
     def __init__(self):
 
         # извлекаем адрес сервера из файла с настройками
-        with open("settings/config.json", "r") as file:
+        with open(os.path.join(base_dir, "settings", "config.json"), "r") as file:
             data = json.load(file)
         require_manifest = bool(data.get("require_manifest", False))
         if not verify_manifest(require_manifest):
@@ -78,7 +82,7 @@ def delete_files(file_paths):
     return True
 
 def check_del_file():
-    file_to_check = 'delete.txt'
+    file_to_check = os.path.join(base_dir, "delete.txt")
     if os.path.isfile(file_to_check):
         with open(file_to_check, 'r') as file:
             paths = file.read().splitlines()
