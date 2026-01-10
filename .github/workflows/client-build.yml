@@ -34,14 +34,26 @@ jobs:
       - name: Install build deps
         run: python -m pip install --upgrade pip setuptools wheel cython
 
-      - name: Compute build version
+      - name: Compute build version (unix)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "BUILD_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+            echo "BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "BUILD_VERSION=$(python -c \"from datetime import datetime; print(datetime.now().strftime('%d.%m.%Y'))\")" >> $GITHUB_ENV
+            echo "BUILD_VERSION=$(python -c 'from datetime import datetime; print(datetime.now().strftime(\"%d.%m.%Y\"))')" >> "$GITHUB_ENV"
           fi
+
+      - name: Compute build version (windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $ver = $env:GITHUB_REF_NAME -replace '^v',''
+          } else {
+            $ver = python -c "from datetime import datetime; print(datetime.now().strftime('%d.%m.%Y'))"
+          }
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$ver"
 
       - name: Import GPG key (Ubuntu only)
         if: matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != ''
