@@ -32,7 +32,7 @@ def copy_tree(src, dst):
     shutil.copytree(src, dst)
 
 
-def build_dist(root_dir, dist_dir):
+def build_dist(root_dir, dist_dir, version):
     firestorm_dir = root_dir / "FireStorm"
     modules_dir = firestorm_dir / "modules"
     if not firestorm_dir.exists():
@@ -68,6 +68,12 @@ def build_dist(root_dir, dist_dir):
     for path in modules_dir.glob(f"*{ext_suffix}"):
         shutil.copy2(path, dst_modules / path.name)
 
+    # Ensure version file reflects build version
+    ver_path = dist_dir / "ver"
+    if ver_path.exists() and ver_path.is_dir():
+        ver_path = ver_path / "ver"
+    with open(ver_path, "w", encoding="utf-8") as f:
+        f.write(version)
 
 
 def write_manifest(dist_dir, version):
@@ -107,7 +113,7 @@ def main():
     version = args.version or datetime.now().strftime("%d.%m.%Y")
 
     build_extensions(root_dir)
-    build_dist(root_dir, dist_dir)
+    build_dist(root_dir, dist_dir, version)
     write_manifest(dist_dir, version)
 
     print(f"OK: dist created at {dist_dir}")

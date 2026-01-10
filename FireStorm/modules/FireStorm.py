@@ -31,6 +31,7 @@ def _prepare_paths():
 
 
 base_dir, resource_dir, data_dir = _prepare_paths()
+os.environ["FIRESTORM_BASE"] = data_dir
 #
 import modules.app_gui as app_gui
 

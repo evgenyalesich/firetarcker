@@ -6,6 +6,7 @@ import threading
 import json
 import os
 import subprocess
+import sys
 # самописные модули
 import modules.http_client as http_client
 import modules.log_in_form as log_in_form
@@ -51,6 +52,24 @@ class PokerCheckApp():
 
         self.window = tk.Tk()
         self.window.withdraw()
+
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        if sys.platform.startswith("win"):
+            icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
+            if os.path.exists(icon_path):
+                try:
+                    self.window.iconbitmap(icon_path)
+                except Exception:
+                    pass
+        else:
+            icon_path = os.path.join(base_dir, "img", "logo.png")
+            if os.path.exists(icon_path):
+                try:
+                    icon_img = tk.PhotoImage(file=icon_path)
+                    self.window.iconphoto(True, icon_img)
+                    self._icon_img = icon_img
+                except Exception:
+                    pass
 
         self.window.after(0, self.create_widgets)
 
