@@ -24,6 +24,9 @@ def _find_latest_update():
 
 
 def _get_version_from_zip(zip_filename):
+    base = os.path.basename(zip_filename)
+    if base.startswith("update_") and base.endswith(".zip"):
+        return base[len("update_") : -len(".zip")]
     try:
         with zipfile.ZipFile(zip_filename, "r") as zip_file:
             comment_bytes = zip_file.comment
@@ -31,9 +34,6 @@ def _get_version_from_zip(zip_filename):
                 return comment_bytes.decode("utf-8")
     except Exception:
         pass
-    base = os.path.basename(zip_filename)
-    if base.startswith("update_") and base.endswith(".zip"):
-        return base[len("update_") : -len(".zip")]
     return ""
 
 
