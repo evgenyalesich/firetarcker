@@ -8,11 +8,21 @@ from tkinter import messagebox
 # все доступные в системе диски
 drives = [d for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
 # системные пути для подстановки
+def _get_appdata():
+    userprofile = os.getenv("USERPROFILE")
+    if userprofile:
+        return os.path.join(userprofile, "AppData")
+    xdg_data_home = os.getenv("XDG_DATA_HOME")
+    if xdg_data_home:
+        return xdg_data_home
+    return str(Path.home() / ".local" / "share")
+
+
 system_paths = {
-    "appdata": os.path.join(os.getenv('USERPROFILE'), 'AppData'),
-    "user": os.path.expanduser('~'),
-    "documents": str(Path.home() / 'Documents'),
-    "desktop": str(Path.home() / 'Desktop')
+    "appdata": _get_appdata(),
+    "user": os.path.expanduser("~"),
+    "documents": str(Path.home() / "Documents"),
+    "desktop": str(Path.home() / "Desktop"),
     }
 
 def load_conf(json_file):
