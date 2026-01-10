@@ -2,6 +2,9 @@
 !ifndef VERSION
   !define VERSION "0.0.0"
 !endif
+!ifndef ROOT
+  !define ROOT "."
+!endif
 !define EXE_NAME "FireStorm.exe"
 !define INSTALL_DIR "$PROGRAMFILES\FireStorm"
 
@@ -10,8 +13,8 @@ OutFile "dist_installer\windows\FireStorm-${VERSION}-setup.exe"
 InstallDir "${INSTALL_DIR}"
 RequestExecutionLevel admin
 
-Icon "FireStorm\img\gui_icon.ico"
-UninstallIcon "FireStorm\img\gui_icon.ico"
+Icon "${ROOT}\FireStorm\img\gui_icon.ico"
+UninstallIcon "${ROOT}\FireStorm\img\gui_icon.ico"
 
 Page directory
 Page instfiles
@@ -19,7 +22,7 @@ UninstPage instfiles
 
 Section "Install"
   SetOutPath "$INSTDIR"
-  File /r "dist\FireStorm\*"
+  File /r "${ROOT}\dist\FireStorm\*"
   CreateShortCut "$DESKTOP\FireStorm.lnk" "$INSTDIR\${EXE_NAME}"
   CreateShortCut "$SMPROGRAMS\FireStorm.lnk" "$INSTDIR\${EXE_NAME}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
