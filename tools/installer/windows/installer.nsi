@@ -5,11 +5,14 @@
 !ifndef ROOT
   !define ROOT "."
 !endif
+!ifndef OUTDIR
+  !define OUTDIR "${ROOT}\dist_installer\windows"
+!endif
 !define EXE_NAME "FireStorm.exe"
 !define INSTALL_DIR "$PROGRAMFILES\FireStorm"
 
 Name "${APPNAME}"
-OutFile "dist_installer\windows\FireStorm-${VERSION}-setup.exe"
+OutFile "${OUTDIR}\FireStorm-${VERSION}-setup.exe"
 InstallDir "${INSTALL_DIR}"
 RequestExecutionLevel admin
 

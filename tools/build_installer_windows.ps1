@@ -37,6 +37,6 @@ if (-not $makensis) {
 if (-not $makensis) {
   throw "makensis.exe not found. Ensure NSIS is installed."
 }
-& $makensis "/DVERSION=$Version" "/DROOT=$Root" $nsis
+& $makensis "/DVERSION=$Version" "/DROOT=$Root" "/DOUTDIR=$OutDir" $nsis
 
 Write-Host "OK: $OutDir"
