@@ -164,3 +164,4 @@ jobs:
 
       - name: Deploy installer to VPS (Windows)
         if: false
+        run: echo "disabled"
