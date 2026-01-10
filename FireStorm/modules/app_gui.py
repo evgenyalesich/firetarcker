@@ -53,6 +53,10 @@ class PokerCheckApp():
         self.window = tk.Tk()
         self.window.withdraw()
 
+        if not sys.platform.startswith("win"):
+            # Prevent hard crash if old code tries to use iconbitmap on Linux/macOS.
+            self.window.iconbitmap = lambda *args, **kwargs: None
+
         base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
         if sys.platform.startswith("win"):
             icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
@@ -148,7 +152,23 @@ class PokerCheckApp():
 
         self.window.resizable(False, False)
         self.window.title(f"FireStorm v{self.version}")
-        self.window.iconbitmap("img/gui_icon.ico")
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        if sys.platform.startswith("win"):
+            icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
+            if os.path.exists(icon_path):
+                try:
+                    self.window.iconbitmap(icon_path)
+                except Exception:
+                    pass
+        else:
+            icon_path = os.path.join(base_dir, "img", "logo.png")
+            if os.path.exists(icon_path):
+                try:
+                    icon_img = tk.PhotoImage(file=icon_path)
+                    self.window.iconphoto(True, icon_img)
+                    self._icon_img = icon_img
+                except Exception:
+                    pass
 
         self.log_in_frame = log_in_form.LogInForm(tk.Frame(self.window, borderwidth=0, relief="flat", highlightthickness=0), self.login, height=self.height, width=self.width) # создаём элементы в фрейме авторизации
         self.log_in_frame.pack()
