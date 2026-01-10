@@ -5,6 +5,7 @@ import sys
 import json
 import hashlib
 import shutil
+from pathlib import Path
 #
 # устанавливаем путь к папке с софтом
 def _prepare_paths():
