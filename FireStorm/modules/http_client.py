@@ -313,29 +313,23 @@ async def check_update(URL, session=None):
     url = f'{URL}/checkupdate_v2'
     data = aiohttp.FormData()
 
-    new_session = None
-    if not session:
-        new_session = aiohttp.ClientSession()
-        session = new_session
-
     # 10 попыток соединения
     for attempt in range(10):
+        new_session = None
+        sess = session
+        if not sess:
+            new_session = aiohttp.ClientSession()
+            sess = new_session
         try:
-            # async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=data, timeout=30) as response:
+            async with sess.post(url, data=data, timeout=30) as response:
                 if response.status == 303:
-                    if new_session:
-                        await session.close()
                     return await response.text()
-                else:
-                    if new_session:
-                        await session.close()
-                    return ""
-
+                return ""
         except Exception as error:
             print(f"Попытка {attempt+1} получить версию ПО провалилась... {error}")
-    if new_session:
-        await session.close()
+        finally:
+            if new_session:
+                await sess.close()
     return None
 
 async def get_update(URL, bar, version=None):

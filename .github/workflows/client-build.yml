@@ -170,4 +170,11 @@ jobs:
           $keyPath = "$env:USERPROFILE\.ssh\id_rsa"
           Set-Content -Path $keyPath -Value $env:VPS_SSH_KEY
           ssh -o StrictHostKeyChecking=no "$env:VPS_USER@$env:VPS_HOST" "mkdir -p $env:VPS_PATH/installers/win"
-          scp -o StrictHostKeyChecking=no dist_installer/windows/*.exe "$env:VPS_USER@$env:VPS_HOST:$env:VPS_PATH/installers/win/"
+          $files = Get-ChildItem -Path "dist_installer/windows/*.exe" -ErrorAction SilentlyContinue
+          if (-not $files) {
+            Write-Host "No Windows installer found, skipping deploy."
+            exit 0
+          }
+          foreach ($file in $files) {
+            scp -o StrictHostKeyChecking=no "$($file.FullName)" "$env:VPS_USER@$env:VPS_HOST:$env:VPS_PATH/installers/win/"
+          }
