@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 # самописные модули
 import modules.http_client as http_client
 import modules.log_in_form as log_in_form
@@ -123,7 +124,7 @@ class PokerCheckApp():
                 print("Не обнаружено обновлений на сервере")
                 return
             # если версия на сервере отличается от нашей, то выводим окно для загрузки обновы
-            if server_version != self.version:
+            if self._is_newer_version(server_version, self.version):
                 # если раскомментить, то при отказе от обновы и последующей загрузке лейаута софт вылетит
                 # temp_window = tk.Tk()
                 # temp_window.withdraw()
@@ -142,6 +143,23 @@ class PokerCheckApp():
             except:
                 print("app_gui не удалось отправить лог")
             print(f"Ошибка при запросе актуальной версии ПО: {e}")
+
+    def _parse_version_date(self, value):
+        for fmt in ("%d.%m.%Y", "%d.%m.%y"):
+            try:
+                return datetime.strptime(value, fmt)
+            except Exception:
+                continue
+        return None
+
+    def _is_newer_version(self, server_version, local_version):
+        if not server_version:
+            return False
+        s_date = self._parse_version_date(server_version)
+        l_date = self._parse_version_date(local_version)
+        if s_date and l_date:
+            return s_date > l_date
+        return server_version != local_version
 
     def create_widgets(self):
 

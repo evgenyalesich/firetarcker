@@ -21,6 +21,11 @@ def _prepare_paths():
                 shutil.copytree(src, dst)
             elif os.path.isfile(src) and not os.path.exists(dst):
                 shutil.copy2(src, dst)
+        # Always refresh version file from packaged resources.
+        resource_ver = os.path.join(resource_dir, "ver")
+        data_ver = os.path.join(data_dir, "ver")
+        if os.path.isfile(resource_ver):
+            shutil.copy2(resource_ver, data_ver)
         os.chdir(data_dir)
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
