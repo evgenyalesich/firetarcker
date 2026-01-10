@@ -21,7 +21,10 @@ $dataArgs = @(
   "--add-data", "FireStorm\\settings;settings",
   "--add-data", "FireStorm\\layouts;layouts",
   "--add-data", "FireStorm\\img;img",
-  "--add-data", "FireStorm\\ver;ver"
+  "--add-data", "FireStorm\\ver;ver",
+  "--hidden-import", "tkinter",
+  "--hidden-import", "PIL._tkinter_finder",
+  "--collect-submodules", "PIL"
 )
 
 pyinstaller --noconfirm --clean --name "FireStorm" --onedir --windowed --icon "FireStorm\\img\\gui_icon.ico" @dataArgs "FireStorm\\FireStorm.py"

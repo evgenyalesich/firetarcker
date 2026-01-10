@@ -22,6 +22,9 @@ pyinstaller \
   --clean \
   --name "${APP_NAME}" \
   --windowed \
+  --hidden-import=tkinter \
+  --hidden-import=PIL._tkinter_finder \
+  --collect-submodules PIL \
   --add-data "FireStorm/settings:settings" \
   --add-data "FireStorm/layouts:layouts" \
   --add-data "FireStorm/img:img" \

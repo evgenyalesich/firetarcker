@@ -170,7 +170,12 @@ jobs:
           $keyPath = "$env:USERPROFILE\.ssh\id_rsa"
           Set-Content -Path $keyPath -Value $env:VPS_SSH_KEY
           ssh -o StrictHostKeyChecking=no "$env:VPS_USER@$env:VPS_HOST" "mkdir -p $env:VPS_PATH/installers/win"
-          $files = Get-ChildItem -Path "dist_installer/windows/*.exe" -ErrorAction SilentlyContinue
+          $installerDir = Join-Path $PWD "dist_installer/windows"
+          if (-not (Test-Path $installerDir)) {
+            Write-Host "No Windows installer directory, skipping deploy."
+            exit 0
+          }
+          $files = Get-ChildItem -Path (Join-Path $installerDir "*.exe") -ErrorAction SilentlyContinue
           if (-not $files) {
             Write-Host "No Windows installer found, skipping deploy."
             exit 0
