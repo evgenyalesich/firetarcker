@@ -4,13 +4,32 @@ import os
 import sys
 import json
 import hashlib
+import shutil
 #
 # устанавливаем путь к папке с софтом
-if getattr(sys, "frozen", False):
-    base_dir = os.path.dirname(sys.executable)
-else:
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(base_dir)
+def _prepare_paths():
+    if getattr(sys, "frozen", False):
+        base_dir = os.path.dirname(sys.executable)
+        resource_dir = getattr(sys, "_MEIPASS", base_dir)
+        data_dir = os.path.join(Path.home(), ".local", "share", "firestorm")
+        os.makedirs(data_dir, exist_ok=True)
+        for name in ("settings", "layouts", "img", "ver"):
+            src = os.path.join(resource_dir, name)
+            dst = os.path.join(data_dir, name)
+            if os.path.isdir(src) and not os.path.exists(dst):
+                shutil.copytree(src, dst)
+            elif os.path.isfile(src) and not os.path.exists(dst):
+                shutil.copy2(src, dst)
+        os.chdir(data_dir)
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        resource_dir = base_dir
+        data_dir = base_dir
+        os.chdir(base_dir)
+    return base_dir, resource_dir, data_dir
+
+
+base_dir, resource_dir, data_dir = _prepare_paths()
 #
 import modules.app_gui as app_gui
 
@@ -24,7 +43,7 @@ def sha256_file(path):
 
 
 def verify_manifest(required):
-    manifest_path = os.path.join(base_dir, "manifest.json")
+    manifest_path = os.path.join(data_dir, "manifest.json")
     if not os.path.exists(manifest_path):
         if required:
             print("manifest.json не найден. Запуск остановлен.")
@@ -53,7 +72,7 @@ class FireStorm:
     def __init__(self):
 
         # извлекаем адрес сервера из файла с настройками
-        with open(os.path.join(base_dir, "settings", "config.json"), "r") as file:
+        with open(os.path.join(data_dir, "settings", "config.json"), "r") as file:
             data = json.load(file)
         require_manifest = bool(data.get("require_manifest", False))
         if not verify_manifest(require_manifest):
@@ -82,7 +101,7 @@ def delete_files(file_paths):
     return True
 
 def check_del_file():
-    file_to_check = os.path.join(base_dir, "delete.txt")
+    file_to_check = os.path.join(data_dir, "delete.txt")
     if os.path.isfile(file_to_check):
         with open(file_to_check, 'r') as file:
             paths = file.read().splitlines()
