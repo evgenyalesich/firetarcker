@@ -74,7 +74,7 @@ jobs:
             update_*.zip.asc
 
       - name: Deploy update to VPS
-        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        if: matrix.os == 'ubuntu-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
         shell: bash
         run: |
           mkdir -p ~/.ssh
