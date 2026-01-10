@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-22.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     env:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install system deps (Ubuntu only)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-tk
@@ -65,7 +65,7 @@ jobs:
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Import GPG key (Ubuntu only)
-        if: matrix.os == 'ubuntu-latest' && env.GPG_PRIVATE_KEY != ''
+        if: startsWith(matrix.os, 'ubuntu') && env.GPG_PRIVATE_KEY != ''
         shell: bash
         run: |
           echo "${GPG_PRIVATE_KEY}" | gpg --batch --import
@@ -74,7 +74,7 @@ jobs:
           fi
 
       - name: Build client + update
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: |
           SIGN_ARGS=""
@@ -87,7 +87,7 @@ jobs:
           python tools/autobuild.py --version "${{ env.BUILD_VERSION }}" $SIGN_ARGS
 
       - name: Build installer (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: bash tools/build_installer_linux.sh "${{ env.BUILD_VERSION }}"
 
@@ -107,7 +107,7 @@ jobs:
         run: ./tools/build_installer_windows.ps1 -Version $env:BUILD_VERSION
 
       - name: Upload update artifacts (Ubuntu only)
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         uses: actions/upload-artifact@v4
         with:
           name: firestorm-${{ matrix.os }}-${{ env.BUILD_VERSION }}
@@ -124,7 +124,7 @@ jobs:
             dist_installer/**
 
       - name: Deploy update to VPS
-        if: matrix.os == 'ubuntu-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        if: startsWith(matrix.os, 'ubuntu') && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
         shell: bash
         run: |
           mkdir -p ~/.ssh
