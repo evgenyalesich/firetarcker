@@ -7,10 +7,16 @@ from aiohttp import web
 import modules.logger as logger
 
 
+def _get_update_dir():
+    return os.getenv("UPDATE_DIR", "updates")
+
+
 def _find_latest_update():
-    if os.path.exists("update_v2.zip"):
-        return "update_v2.zip"
-    candidates = glob.glob("update_*.zip")
+    update_dir = _get_update_dir()
+    legacy = "update_v2.zip"
+    if os.path.exists(legacy):
+        return legacy
+    candidates = glob.glob(os.path.join(update_dir, "update_*.zip"))
     if not candidates:
         return None
     candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
@@ -35,7 +41,7 @@ async def get_update_v2(request):
     data = await request.post()
     version = data.get("version")
     if version:
-        versioned = f"update_{version}.zip"
+        versioned = os.path.join(_get_update_dir(), f"update_{version}.zip")
         if os.path.exists(versioned):
             return web.FileResponse(versioned)
     latest = _find_latest_update()
@@ -48,7 +54,7 @@ async def get_update_v2_sig(request):
     data = await request.post()
     version = data.get("version")
     if version:
-        sig_path = f"update_{version}.zip.asc"
+        sig_path = os.path.join(_get_update_dir(), f"update_{version}.zip.asc")
         if os.path.exists(sig_path):
             return web.FileResponse(sig_path)
     latest = _find_latest_update()
