@@ -120,6 +120,66 @@ class PokerCheckApp():
                 subprocess.Popen([python_path, script_path], shell=False)
                 os._exit(0)
 
+    def _find_uploader_exec(self):
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        app_dir = os.getenv("FIRESTORM_APP_DIR", base_dir)
+        candidates = []
+        if sys.platform.startswith("win"):
+            candidates += [
+                os.path.join(app_dir, "FireStormUploader.exe"),
+                os.path.join(app_dir, "FireStormUploader", "FireStormUploader.exe"),
+                os.path.join(base_dir, "FireStormUploader.exe"),
+            ]
+        elif sys.platform == "darwin":
+            candidates += [
+                os.path.join(app_dir, "FireStormUploader"),
+                os.path.join(app_dir, "FireStormUploader", "FireStormUploader"),
+                os.path.join(base_dir, "FireStormUploader"),
+            ]
+            app_root = os.path.abspath(os.path.join(app_dir, "..", "..", ".."))
+            candidates.append(os.path.join(app_root, "FireStormUploader.app", "Contents", "MacOS", "FireStormUploader"))
+        else:
+            candidates += [
+                os.path.join(app_dir, "FireStormUploader"),
+                os.path.join(app_dir, "FireStormUploader", "FireStormUploader"),
+                os.path.join(base_dir, "FireStormUploader"),
+                "/usr/bin/firestorm-uploader",
+            ]
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return None
+
+    def start_uploader(self, manual_payload=None):
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        if manual_payload:
+            settings_dir = os.path.join(base_dir, "settings")
+            os.makedirs(settings_dir, exist_ok=True)
+            manual_path = os.path.join(settings_dir, "manual_upload.json")
+            try:
+                with open(manual_path, "w", encoding="utf-8") as file:
+                    json.dump(manual_payload, file, ensure_ascii=True)
+            except Exception as error:
+                messagebox.showerror(title="FireStorm", message=f"Не удалось записать параметры отправки: {error}")
+                return False
+
+        exec_path = self._find_uploader_exec()
+        if not exec_path:
+            messagebox.showerror(
+                title="FireStorm",
+                message="Не найден модуль отправки файлов. Переустановите клиент с новой сборкой.",
+            )
+            return False
+        env = os.environ.copy()
+        env["FIRESTORM_BASE"] = base_dir
+        env["FIRESTORM_APP_DIR"] = os.getenv("FIRESTORM_APP_DIR", base_dir)
+        try:
+            subprocess.Popen([exec_path], env=env, cwd=os.path.dirname(exec_path), shell=False)
+            return True
+        except Exception as error:
+            messagebox.showerror(title="FireStorm", message=f"Не удалось запустить отправку: {error}")
+            return False
+
     
     def check_update(self):
         try:

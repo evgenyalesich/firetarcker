@@ -9,6 +9,7 @@ from tkinter import messagebox
 from threading import Thread
 import time
 import aiohttp
+from datetime import datetime, date
 #
 import modules.http_client as http_client
 # 
@@ -179,8 +180,24 @@ class HTTP_Client():
         self.username = self.user_data["username"] # логин юзера
         self.password = self.user_data["password"] # пароль
 
+        self.manual_request = self.load_manual_request()
+        self.manual_mode = False
+        self.manual_include_existing = True
+        self.manual_date_from = None
+        self.manual_date_to = None
+        self.manual_room = None
+        self.manual_paths = []
+
+        if self.manual_request:
+            self.manual_mode = True
+            self.manual_room = self.manual_request.get("room")
+            self.manual_paths = [p for p in self.manual_request.get("paths", []) if p]
+            self.manual_include_existing = bool(self.manual_request.get("include_existing", True))
+            self.manual_date_from = self._parse_date(self.manual_request.get("date_from"))
+            self.manual_date_to = self._parse_date(self.manual_request.get("date_to"))
+
         # раз в 7 дней делаем проверку, что дефолтные пути есть и тречатся
-        if os.path.exists("settings/services.json"):
+        if os.path.exists("settings/services.json") and not self.manual_mode:
             self.manager["text"] = "Проверка стандартных путей румов"
             with open("settings/services.json", 'r') as file:
                 services = json.load(file)
@@ -193,9 +210,68 @@ class HTTP_Client():
         for room in self.services_data["services"]:
             if self.services_data["services"][room]["folders"] != [] and self.services_data["services"][room]["track"]:
                 self.rooms[room] = self.services_data["services"][room]["folders"]
+
+        if self.manual_mode and self.manual_room and self.manual_paths:
+            self.rooms = {self.manual_room: self.manual_paths}
                 
         write_status("idle", "Ожидание отправки")
         asyncio.run(self.show_alert())
+
+    def load_manual_request(self):
+        manual_path = os.path.join(base_dir, "settings", "manual_upload.json")
+        if not os.path.exists(manual_path):
+            return None
+        try:
+            with open(manual_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+        except Exception:
+            data = None
+        try:
+            os.remove(manual_path)
+        except Exception:
+            pass
+        return data
+
+    def _parse_date(self, value):
+        if not value:
+            return None
+        value = str(value).strip()
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d.%m.%y"):
+            try:
+                return datetime.strptime(value, fmt).date()
+            except Exception:
+                continue
+        return None
+
+    def _parse_version_parts(self, value):
+        value = str(value).strip()
+        if not value:
+            return None
+        pieces = value.split(".")
+        if len(pieces) < 3:
+            return None
+        date_str = ".".join(pieces[:3])
+        for fmt in ("%d.%m.%Y", "%d.%m.%y"):
+            try:
+                date_val = datetime.strptime(date_str, fmt)
+                build_num = 0
+                if len(pieces) > 3 and pieces[3].isdigit():
+                    build_num = int(pieces[3])
+                return date_val, build_num
+            except Exception:
+                continue
+        return None
+
+    def _is_newer_version(self, server_version, local_version):
+        if not server_version:
+            return False
+        s_parts = self._parse_version_parts(server_version)
+        l_parts = self._parse_version_parts(local_version)
+        if s_parts and l_parts:
+            if s_parts[0] != l_parts[0]:
+                return s_parts[0] > l_parts[0]
+            return s_parts[1] > l_parts[1]
+        return server_version != local_version
 
 
     def timer_close(self, text="", timer=0, color="red"):
@@ -248,8 +324,11 @@ class HTTP_Client():
             self.manager["text"] = "Проверка актуальной версии ПО..."
             self.manager["color"] = "white"
 
-            if os.path.exists("ver"):
-                with open("ver", "r") as file:
+            version_path = "ver"
+            if os.path.isdir(version_path):
+                version_path = os.path.join("ver", "ver")
+            if os.path.isfile(version_path):
+                with open(version_path, "r") as file:
                     self.version = file.readline()
             else:
                 self.version = "1.0"
@@ -260,27 +339,27 @@ class HTTP_Client():
                 session=self.session,
             )
 
-            if server_version == "" or server_version == self.version:
-                # если у юзера последняя версия, то выходим из цикла
-                # выводит сообщение юзеру перед отправкой файлов
-                self.user_accept = False # согласился ли юзер продолжить
-                self.manager["text"] = "ВНИМАНИЕ!\nИспользование этой программы при любом запущенном клиенте\nрума ЗАПРЕЩЕНО!\n\nДля начала отправки нажмите мышкой в это окно."
-                self.manager["color"] = "white"
-                write_status("idle", "Ожидание подтверждения пользователя")
+            server_version = "" if server_version is None else str(server_version).strip()
+            local_version = str(self.version).strip()
 
-            elif server_version == 200 or server_version is None:
+            if server_version in ("", "200"):
                 # если ошибка при запросе версии
                 self.manager["color"] = "red"
                 write_status("error", "Не удалось проверить обновления")
                 self.click_close(text="Не удалось проверить обновления! Проверьте интернет соединение и перезапустите программу!")
                 return
 
-            elif server_version != self.version:
-                # если ошибка при запросе версии
+            if self._is_newer_version(server_version, local_version):
                 self.manager["color"] = "red"
                 write_status("update", "Требуется обновление клиента")
                 self.click_close(text="Ваша версия ПО устарела!\nЗапустите FireStorm, и загрузите обновление для дальнейшей работы с программой!")
                 return
+
+            # если у юзера последняя версия, то продолжаем
+            self.user_accept = False # согласился ли юзер продолжить
+            self.manager["text"] = "ВНИМАНИЕ!\nИспользование этой программы при любом запущенном клиенте\nрума ЗАПРЕЩЕНО!\n\nДля начала отправки нажмите мышкой в это окно."
+            self.manager["color"] = "white"
+            write_status("idle", "Ожидание подтверждения пользователя")
 
             self.manager["mouse_click"] = False
             # пока юзер не нажал ЛКМ, ждём...
@@ -391,30 +470,32 @@ class HTTP_Client():
             room_name = srv
             dir_list = self.rooms[srv]
                 
-            self.manager["text"] = f"Получаем список файлов на сервере для рума: {room_name}..."
-            self.manager["color"] = "white"
-            timeout = 45
-            while True:
-                files_on_server = await http_client.get_files(URL=self.file_server, route=self.route, username=self.username, room=room_name, auth_key=self.auth_key, session=self.session, timeout=timeout)
-                
-                # если потеряно соединение с сервером
-                if files_on_server == 200:
-                    self.manager["text"] = "Потеряно соединение с сервером...\nПопытка восстановления"
-                    self.manager["color"] = "red"
-                    self.manager["downloaded"] = None
-                    self.manager["progress"] = None
-                    timeout += 45 # увеличиваем таймаут ожидания ответа
+            files_on_server = []
+            if not self.manual_mode or not self.manual_include_existing:
+                self.manager["text"] = f"Получаем список файлов на сервере для рума: {room_name}..."
+                self.manager["color"] = "white"
+                timeout = 45
+                while True:
+                    files_on_server = await http_client.get_files(URL=self.file_server, route=self.route, username=self.username, room=room_name, auth_key=self.auth_key, session=self.session, timeout=timeout)
 
-                elif files_on_server is None:
-                    # невалидный ключ
-                    if not await self.try_log_in():
+                    # если потеряно соединение с сервером
+                    if files_on_server == 200:
+                        self.manager["text"] = "Потеряно соединение с сервером...\nПопытка восстановления"
                         self.manager["color"] = "red"
-                        self.click_close(text="Ошибка при получении ключа аутентификации!\nПерезапустите программу!")
-                elif files_on_server != 300:
-                    break
+                        self.manager["downloaded"] = None
+                        self.manager["progress"] = None
+                        timeout += 45 # увеличиваем таймаут ожидания ответа
 
-                # ждём 1 секунду
-                await asyncio.sleep(1)
+                    elif files_on_server is None:
+                        # невалидный ключ
+                        if not await self.try_log_in():
+                            self.manager["color"] = "red"
+                            self.click_close(text="Ошибка при получении ключа аутентификации!\nПерезапустите программу!")
+                    elif files_on_server != 300:
+                        break
+
+                    # ждём 1 секунду
+                    await asyncio.sleep(1)
 
             # если невалидный ключ авторизации
             if files_on_server is None:
@@ -430,13 +511,16 @@ class HTTP_Client():
 
             for path in dir_list:
                 # получаем список файлов из каталогов (абсолютные пути к файлам)
-                finded_files = self.find_files(path=path)
+                finded_files = self.find_files(path=path, date_from=self.manual_date_from, date_to=self.manual_date_to)
 
                 # формируем список файлов, которые нужно отправить на сервер (которых там ещё нет)
                 finded_files_set = set(map(tuple, finded_files))
                 files_on_server = set(map(tuple, files_on_server))
                 files_counter += len(files_on_server)
-                need_to_send = list(finded_files_set - files_on_server)
+                if self.manual_mode and self.manual_include_existing:
+                    need_to_send = list(finded_files_set)
+                else:
+                    need_to_send = list(finded_files_set - files_on_server)
                 local_files_counter += len(need_to_send)
 
                 if need_to_send == [()] or need_to_send == []:
@@ -545,7 +629,7 @@ class HTTP_Client():
                 return None
 
     # функция принимает путь к папке, и возвращает список файлов в ней
-    def find_files(self, path): #, size_limit=1024):
+    def find_files(self, path, date_from=None, date_to=None): #, size_limit=1024):
         small_files = [] # сюда попадают названия файлов
 
         # size_limit *= 1024  # переводим килобайты в байты
@@ -566,6 +650,12 @@ class HTTP_Client():
                     # если расширение файла то, что нужно
                     file_extension = os.path.splitext(file)[1][1:]
                     if file_extension and file_extension in self.FILE_TYPES:
+                        if date_from or date_to:
+                            file_date = date.fromtimestamp(os.path.getmtime(full_path))
+                            if date_from and file_date < date_from:
+                                continue
+                            if date_to and file_date > date_to:
+                                continue
                         # добавляем в список файлов относительный путь
                         relative_path = os.path.relpath(full_path, path)
 
@@ -580,7 +670,7 @@ class HTTP_Client():
                         else:
                             checksum = None
 
-                            small_files.append([relative_path, checksum])
+                        small_files.append([relative_path, checksum])
 
         else:
             print("Указанный путь не существует")

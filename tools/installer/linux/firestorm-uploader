@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_DIR="${FIRESTORM_BASE:-${HOME}/.local/share/firestorm}"
+APP_DIR="${FIRESTORM_APP_DIR:-/opt/firestorm}"
+
+export FIRESTORM_BASE="${BASE_DIR}"
+export FIRESTORM_APP_DIR="${APP_DIR}"
+
+exec /opt/firestorm/FireStormUploader/FireStormUploader "$@"

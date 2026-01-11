@@ -34,12 +34,27 @@ pyinstaller \
   --add-data "FireStorm/ver:ver" \
   "FireStorm/FireStorm.py"
 
+pyinstaller \
+  --noconfirm \
+  --clean \
+  --name "FireStormUploader" \
+  --onedir \
+  --windowed \
+  --hidden-import=tkinter \
+  --hidden-import=PIL._tkinter_finder \
+  --collect-submodules PIL \
+  "FireStorm/uploader.py"
+
 mkdir -p "${PKG_ROOT}/opt/firestorm"
 cp -R "${DIST_DIR}/${APP_NAME}/." "${PKG_ROOT}/opt/firestorm/"
+mkdir -p "${PKG_ROOT}/opt/firestorm/FireStormUploader"
+cp -R "${DIST_DIR}/FireStormUploader/." "${PKG_ROOT}/opt/firestorm/FireStormUploader/"
 
 mkdir -p "${PKG_ROOT}/usr/bin"
 cp "${ROOT_DIR}/tools/installer/linux/firestorm" "${PKG_ROOT}/usr/bin/firestorm"
 chmod 755 "${PKG_ROOT}/usr/bin/firestorm"
+cp "${ROOT_DIR}/tools/installer/linux/firestorm-uploader" "${PKG_ROOT}/usr/bin/firestorm-uploader"
+chmod 755 "${PKG_ROOT}/usr/bin/firestorm-uploader"
 
 mkdir -p "${PKG_ROOT}/usr/share/applications"
 cp "${ROOT_DIR}/tools/installer/linux/firestorm.desktop" "${PKG_ROOT}/usr/share/applications/firestorm.desktop"

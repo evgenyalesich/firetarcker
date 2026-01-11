@@ -30,6 +30,13 @@ $dataArgs = @(
 
 pyinstaller --noconfirm --clean --name "FireStorm" --onedir --windowed --icon "FireStorm\\img\\gui_icon.ico" @dataArgs "FireStorm\\FireStorm.py"
 
+$uploaderArgs = @(
+  "--hidden-import", "tkinter",
+  "--hidden-import", "PIL._tkinter_finder",
+  "--collect-submodules", "PIL"
+)
+pyinstaller --noconfirm --clean --name "FireStormUploader" --onedir --windowed @uploaderArgs "FireStorm\\uploader.py"
+
 $nsis = Join-Path $Root "tools\\installer\\windows\\installer.nsi"
 $makensis = (Get-Command makensis.exe -ErrorAction SilentlyContinue).Path
 if (-not $makensis) {

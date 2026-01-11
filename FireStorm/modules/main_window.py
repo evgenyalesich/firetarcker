@@ -320,6 +320,27 @@ class Room:
         self.sub_canvas.tag_bind(self.status_text_id, "<Leave>", self._status_leave)
         self.refresh_status()
 
+        manual_y = self.parent.height // 2 + 40
+        self.sub_canvas.create_text(0, manual_y, text="Ручная отправка", font=("Arial", 12), anchor=tk.W, fill="white")
+        self.sub_canvas.create_text(0, manual_y + 24, text="с", font=("Arial", 10), anchor=tk.W, fill="#bdbdbd")
+        self.date_from_entry = tk.Entry(self.sub_canvas, width=10, relief="flat", bg="#1E1E1E", fg="white")
+        self.sub_canvas.create_window(14, manual_y + 24, window=self.date_from_entry, anchor=tk.W)
+        self.sub_canvas.create_text(120, manual_y + 24, text="по", font=("Arial", 10), anchor=tk.W, fill="#bdbdbd")
+        self.date_to_entry = tk.Entry(self.sub_canvas, width=10, relief="flat", bg="#1E1E1E", fg="white")
+        self.sub_canvas.create_window(140, manual_y + 24, window=self.date_to_entry, anchor=tk.W)
+        self.send_button = tk.Button(
+            self.sub_canvas,
+            text="Отправить",
+            font=("Arial", 10),
+            fg="white",
+            bg="#C71B74",
+            activebackground="#A0145C",
+            activeforeground="white",
+            relief="flat",
+            command=self.manual_send,
+        )
+        self.sub_canvas.create_window(230, manual_y + 24, window=self.send_button, anchor=tk.W)
+
     def check_switcher(self):
         # обновляем положение переключателя
         if self.tracking == True:
@@ -446,6 +467,31 @@ class Room:
         self.sub_canvas.itemconfig(self.status_id, fill=color)
         # обновляем каждые 3 секунды
         self.sub_canvas.after(3000, self.refresh_status)
+
+    def manual_send(self):
+        paths = []
+        if self.dirs_listbox.selected_item is not None:
+            try:
+                paths = [self.dirs_listbox.items[self.dirs_listbox.selected_item]]
+            except Exception:
+                paths = []
+        if not paths:
+            paths = list(self.dirs_listbox.items)
+        if not paths:
+            messagebox.showerror(title="FireStorm", message="Нет выбранных папок для отправки.")
+            return
+
+        date_from = self.date_from_entry.get().strip()
+        date_to = self.date_to_entry.get().strip()
+        manual_payload = {
+            "room": self.name,
+            "paths": paths,
+            "date_from": date_from or None,
+            "date_to": date_to or None,
+            "include_existing": True,
+            "mode": "manual",
+        }
+        self.parent.parent.start_uploader(manual_payload=manual_payload)
 
     def on_enter(self, tag_name, new_img):
         self.sub_canvas.itemconfig(tag_name, image=new_img)

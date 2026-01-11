@@ -26,6 +26,8 @@ UninstPage instfiles
 Section "Install"
   SetOutPath "$INSTDIR"
   File /r "${ROOT}\dist\FireStorm\*"
+  SetOutPath "$INSTDIR\FireStormUploader"
+  File /r "${ROOT}\dist\FireStormUploader\*"
   CreateShortCut "$DESKTOP\FireStorm.lnk" "$INSTDIR\${EXE_NAME}"
   CreateShortCut "$SMPROGRAMS\FireStorm.lnk" "$INSTDIR\${EXE_NAME}"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
