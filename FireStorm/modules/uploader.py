@@ -40,6 +40,16 @@ def write_status(state, message, room=None, extra=None):
     except Exception:
         pass
 
+
+def _config_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
 class Window():
     def __init__(self, size):
         self.manager = None
@@ -174,6 +184,13 @@ class HTTP_Client():
             self.config = json.load(file)
         self.server_url = self.config["server"]# ip:port сервера
         self.FILE_TYPES = self.config["filetypes"] # типы файлов, которые будем забирать
+        self.auto_upload = _config_bool(self.config.get("auto_upload"), True)
+        try:
+            self.auto_upload_interval = int(self.config.get("auto_upload_interval_sec", 60))
+        except Exception:
+            self.auto_upload_interval = 60
+        if self.auto_upload_interval < 10:
+            self.auto_upload_interval = 10
 
         with open("settings/user_data.json", "r") as file:
             self.user_data = json.load(file)
@@ -269,6 +286,9 @@ class HTTP_Client():
         self.manager["downloaded"] = None
         self.manager["progress"] = None
         self.manager["color"] = color
+        if self.auto_upload:
+            self.manager["text"] = text
+            return
         for t in range(timer, 0, -1):
             self.manager["text"] = f"{text}\nВыход через {t}с."
             time.sleep(1)
@@ -280,6 +300,8 @@ class HTTP_Client():
         self.manager["progress"] = None
         self.manager["text"] = f"{text}\nДля выхода кликните мышкой в этом окне"
         self.manager["mouse_click"] = False
+        if self.auto_upload:
+            return
         while not self.manager["mouse_click"]:
             time.sleep(0.1)
         os._exit(0)
@@ -347,20 +369,27 @@ class HTTP_Client():
 
             # если у юзера последняя версия, то продолжаем
             self.user_accept = False # согласился ли юзер продолжить
-            self.manager["text"] = "ВНИМАНИЕ!\nИспользование этой программы при любом запущенном клиенте\nрума ЗАПРЕЩЕНО!\n\nДля начала отправки нажмите мышкой в это окно."
-            self.manager["color"] = "white"
-            write_status("idle", "Ожидание подтверждения пользователя")
+            if self.auto_upload:
+                self.manager["text"] = "Автоотправка включена. Проверка процессов..."
+                self.manager["color"] = "white"
+                write_status("idle", "Автоотправка включена")
+                await asyncio.sleep(1)
+                await self.accept()
+            else:
+                self.manager["text"] = "ВНИМАНИЕ!\nИспользование этой программы при любом запущенном клиенте\nрума ЗАПРЕЩЕНО!\n\nДля начала отправки нажмите мышкой в это окно."
+                self.manager["color"] = "white"
+                write_status("idle", "Ожидание подтверждения пользователя")
 
-            self.manager["mouse_click"] = False
-            # пока юзер не нажал ЛКМ, ждём...
-            while not self.manager["mouse_click"]:
-                await asyncio.sleep(0.1)
+                self.manager["mouse_click"] = False
+                # пока юзер не нажал ЛКМ, ждём...
+                while not self.manager["mouse_click"]:
+                    await asyncio.sleep(0.1)
 
-            #
-            self.manager["text"] = "Начинаем сканирование процессов..."
-            self.manager["color"] = "white"
-            # если вышли из цикла - значит юзер принял предупреждение
-            await self.accept()
+                #
+                self.manager["text"] = "Начинаем сканирование процессов..."
+                self.manager["color"] = "white"
+                # если вышли из цикла - значит юзер принял предупреждение
+                await self.accept()
 
     async def accept(self):
         # метод вызывается, когда юзер принимает ответственность за запуск ПО
@@ -429,12 +458,17 @@ class HTTP_Client():
             except Exception as error:
                 print(error)
 
-            self.manager["text"] = "Сканируем файлы... Подождите"
-            self.manager["color"] = "white"
-            # вызываем сканер файлов
+        self.manager["text"] = "Сканируем файлы... Подождите"
+        self.manager["color"] = "white"
+        # вызываем сканер файлов
+        if self.auto_upload:
+            while True:
+                await self.check_start()
+                await asyncio.sleep(self.auto_upload_interval)
+        else:
             await self.check_start()
 
-            return
+        return
 
     async def show_notice(self, notice):
         status = messagebox.showinfo(title="Уведомление", message=notice)
@@ -536,12 +570,24 @@ class HTTP_Client():
                 # выводим юзеру инфу
                 total_sent = getattr(self, "_total_files", 0)
                 write_status("ok", f"Отправлено файлов: {total_sent}", extra={"files_sent": total_sent})
+                if self.auto_upload:
+                    self.manager["text"] = "Отправка завершена"
+                    self.manager["color"] = "green"
+                    self.manager["downloaded"] = None
+                    self.manager["progress"] = None
+                    return True
                 self.timer_close(text="Файлы отправлены!", timer=3, color="green")
         
         else:
             await http_client.update_send_date(URL=self.server_url, username=self.username, auth_key=self.auth_key, session=self.session)
             await http_client.send_log(URL=self.server_url, username=self.username, error="Не обнаружено файлов для передачи на сервер! Возможно, файлы были переданы ранее, неверно указан каталог с руками, либо файлов рук пока нет в указанном каталоге юзера!", level='log', session=self.session)
             write_status("idle", "Нет новых файлов для отправки")
+            if self.auto_upload:
+                self.manager["text"] = "Новых файлов нет"
+                self.manager["color"] = "yellow"
+                self.manager["downloaded"] = None
+                self.manager["progress"] = None
+                return False
             self.timer_close(text="Не найдено новых файлов для отправки на сервер!", timer=5, color="yellow")
             return
 

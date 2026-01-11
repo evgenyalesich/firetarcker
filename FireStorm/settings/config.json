@@ -1,1 +1,1 @@
-{"server": "http://176.117.69.41:8080", "filetypes": ["txt","xml","db"], "require_signature": false, "public_key_path": "settings/public.key", "require_manifest": false, "auto_update": true}
+{"server": "http://176.117.69.41:8080", "filetypes": ["txt","xml","db"], "require_signature": true, "public_key_path": "settings/public.key", "require_manifest": false, "auto_update": true, "allow_app_update": true, "auto_upload": true, "auto_upload_interval_sec": 60}

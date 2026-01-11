@@ -347,6 +347,11 @@ class Room:
             self.parent.canvas.lower(checkbox_id)
             self.parent.canvas.lower("rectangle")
             self.parent.panel_tags.append(checkbox_id)
+            try:
+                if self.dirs_listbox.items:
+                    self.parent.parent.start_uploader()
+            except Exception:
+                pass
         # вносим в json-файл изменения путей, если они были
         # Открываем JSON-файл и загружаем его содержимое
         with open('settings/services.json', 'r') as file:
@@ -374,6 +379,11 @@ class Room:
                 return
 
         self.dirs_listbox.add_item(f"{temp_path}")
+        try:
+            if self.tracking:
+                self.parent.parent.start_uploader()
+        except Exception:
+            pass
 
     def active(self):
         # метод для активации вкладки (вызывается при нажатии ЛКМ)
