@@ -31,6 +31,7 @@ pyinstaller \
   --add-data "FireStorm/settings:settings" \
   --add-data "FireStorm/layouts:layouts" \
   --add-data "FireStorm/img:img" \
+  --add-data "FireStorm/update_installer.py:update_installer.py" \
   --add-data "FireStorm/ver:ver" \
   "FireStorm/FireStorm.py"
 

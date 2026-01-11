@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import aiohttp
 import asyncio
+import shutil
 import threading
 import json
 import os
@@ -117,6 +118,10 @@ class PokerCheckApp():
                     pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
                     if os.path.exists(pythonw):
                         python_path = pythonw
+                else:
+                    python_sys = shutil.which("python3") or shutil.which("python")
+                    if python_sys:
+                        python_path = python_sys
                 subprocess.Popen([python_path, script_path], shell=False)
                 os._exit(0)
 
