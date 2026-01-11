@@ -548,7 +548,15 @@ class HTTP_Client():
                 self.manager["color"] = "white"
                 timeout = 45
                 while True:
-                files_on_server = await http_client.get_files(URL=self.file_server, route=self.route, username=self.username, room=room_name, auth_key=self.auth_key, session=self.session, timeout=timeout)
+                    files_on_server = await http_client.get_files(
+                        URL=self.file_server,
+                        route=self.route,
+                        username=self.username,
+                        room=room_name,
+                        auth_key=self.auth_key,
+                        session=self.session,
+                        timeout=timeout,
+                    )
 
                     # если потеряно соединение с сервером
                     if files_on_server == 200:
@@ -558,13 +566,13 @@ class HTTP_Client():
                         self.manager["progress"] = None
                         timeout += 45 # увеличиваем таймаут ожидания ответа
 
-                elif files_on_server is None:
-                    # невалидный ключ: обновляем не чаще, чем раз в cooldown
-                    refreshed = await self.refresh_auth_key()
-                    if not refreshed:
-                        await asyncio.sleep(self._auth_refresh_cooldown)
-                elif files_on_server != 300:
-                    break
+                    elif files_on_server is None:
+                        # невалидный ключ: обновляем не чаще, чем раз в cooldown
+                        refreshed = await self.refresh_auth_key()
+                        if not refreshed:
+                            await asyncio.sleep(self._auth_refresh_cooldown)
+                    elif files_on_server != 300:
+                        break
 
                     # ждём 1 секунду
                     await asyncio.sleep(1)
