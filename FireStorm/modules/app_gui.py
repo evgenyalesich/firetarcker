@@ -113,6 +113,10 @@ class PokerCheckApp():
                 script_path = os.path.join(base_dir, "update_installer.py")
                 if not os.path.exists(script_path):
                     script_path = os.path.join(app_dir, "update_installer.py")
+                if not os.path.exists(script_path):
+                    script_path = os.path.join(app_dir, "_internal", "update_installer.py", "update_installer.py")
+                if not os.path.exists(script_path):
+                    script_path = os.path.join(base_dir, "_internal", "update_installer.py", "update_installer.py")
                 python_path = sys.executable
                 if sys.platform.startswith("win"):
                     pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
@@ -157,6 +161,22 @@ class PokerCheckApp():
 
     def start_uploader(self, manual_payload=None):
         base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        pid_path = os.path.join(base_dir, "settings", "uploader.pid")
+        if os.path.isfile(pid_path):
+            try:
+                with open(pid_path, "r", encoding="utf-8") as file:
+                    pid = int(file.read().strip() or "0")
+                if pid > 0:
+                    try:
+                        os.kill(pid, 0)
+                        return True
+                    except Exception:
+                        try:
+                            os.remove(pid_path)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         if manual_payload:
             settings_dir = os.path.join(base_dir, "settings")
             os.makedirs(settings_dir, exist_ok=True)
@@ -179,7 +199,13 @@ class PokerCheckApp():
         env["FIRESTORM_BASE"] = base_dir
         env["FIRESTORM_APP_DIR"] = os.getenv("FIRESTORM_APP_DIR", base_dir)
         try:
-            subprocess.Popen([exec_path], env=env, cwd=os.path.dirname(exec_path), shell=False)
+            proc = subprocess.Popen([exec_path], env=env, cwd=os.path.dirname(exec_path), shell=False)
+            try:
+                os.makedirs(os.path.dirname(pid_path), exist_ok=True)
+                with open(pid_path, "w", encoding="utf-8") as file:
+                    file.write(str(proc.pid))
+            except Exception:
+                pass
             return True
         except Exception as error:
             messagebox.showerror(title="FireStorm", message=f"Не удалось запустить отправку: {error}")
@@ -387,6 +413,14 @@ class PokerCheckApp():
                                 print(f"включен трекинг на {name}")
                                 self.main_frame.goto_tab(tag_name=name, event=None)  
                                 self.main_frame.tab[name].switch_tracking()              
+                # автозапуск отправщика, если есть активные пути
+                try:
+                    with open("settings/services.json", "r") as file:
+                        services = json.load(file)["services"]
+                    if any(srv.get("track") and srv.get("folders") for srv in services.values()):
+                        self.start_uploader()
+                except Exception:
+                    pass
 
             elif status[0] == 505:
                 # Неверный пароль
