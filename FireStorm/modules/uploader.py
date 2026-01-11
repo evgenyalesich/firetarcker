@@ -1,6 +1,7 @@
 import os
 import sys
 import psutil
+import atexit
 import asyncio
 import json
 import hashlib
@@ -18,6 +19,50 @@ import modules.paths_checker as path_checker
 # устанавливаем путь к папке с софтом
 base_dir = os.getenv("FIRESTORM_BASE", os.path.dirname(sys.argv[0]))
 os.chdir(base_dir)
+
+
+def _pid_path():
+    return os.path.join(base_dir, "settings", "uploader.pid")
+
+
+def _is_pid_active(pid):
+    try:
+        process = psutil.Process(pid)
+        return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+    except Exception:
+        return False
+
+
+def _ensure_single_instance():
+    os.makedirs(os.path.join(base_dir, "settings"), exist_ok=True)
+    pid_file = _pid_path()
+    current_pid = os.getpid()
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, "r", encoding="utf-8") as file:
+                existing = int(file.read().strip() or 0)
+        except Exception:
+            existing = 0
+        if existing and existing != current_pid and _is_pid_active(existing):
+            print(f"Uploader already running (pid={existing}).")
+            raise SystemExit(0)
+    with open(pid_file, "w", encoding="utf-8") as file:
+        file.write(str(current_pid))
+
+    def _cleanup():
+        try:
+            if os.path.exists(pid_file):
+                with open(pid_file, "r", encoding="utf-8") as file:
+                    existing = int(file.read().strip() or 0)
+                if existing == current_pid:
+                    os.remove(pid_file)
+        except Exception:
+            pass
+
+    atexit.register(_cleanup)
+
+
+_ensure_single_instance()
 
 
 def _status_path():
