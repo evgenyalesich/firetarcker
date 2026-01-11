@@ -533,7 +533,7 @@ class CustomListBox:
         except Exception as e:
             try:
                 text = f"Ошибка в main_window при записи в файл: {e}"
-                asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error=str(e)))
+                asyncio.run(http_client.send_log(URL=self.parent.parent.server_url, username=self.parent.parent.username, error=str(e)))
             except:
                 print("main_window не удалось отправить лог")
         try:
@@ -559,7 +559,7 @@ class CustomListBox:
                     subprocess.run(["xdg-open", path], check=False)
             except Exception as e:
                 try:
-                    asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error=str(e)))
+                    asyncio.run(http_client.send_log(URL=self.parent.parent.server_url, username=self.parent.parent.username, error=str(e)))
                 except:
                     print("main_window не удалось отправить лог")
 
