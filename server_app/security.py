@@ -59,3 +59,37 @@ def parse_structured_data(value):
         return ast.literal_eval(value)
     except Exception:
         return None
+
+
+def _normalize_username(username):
+    return (username or "").lower()
+
+
+def get_auth_keys(username):
+    user = state.AUTH_USERS.get(_normalize_username(username))
+    if not user:
+        return []
+    keys = user.get("keys")
+    if isinstance(keys, list):
+        return keys
+    key = user.get("key")
+    return [key] if key else []
+
+
+def is_valid_auth(username, auth_key):
+    if not username or not auth_key:
+        return False
+    return auth_key in get_auth_keys(username)
+
+
+def register_auth_key(username, route, auth_key, max_keys=5):
+    uname = _normalize_username(username)
+    if not uname:
+        return
+    keys = get_auth_keys(uname)
+    if auth_key in keys:
+        keys = [k for k in keys if k != auth_key]
+    keys.append(auth_key)
+    if max_keys and len(keys) > max_keys:
+        keys = keys[-max_keys:]
+    state.AUTH_USERS[uname] = {"key": auth_key, "keys": keys, "route": route}

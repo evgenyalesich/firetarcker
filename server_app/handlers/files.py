@@ -6,7 +6,7 @@ from aiohttp import web
 
 import modules.logger as logger
 from server_app import config, state
-from server_app.security import is_safe_component
+from server_app.security import is_safe_component, is_valid_auth
 from server_app.services.file_scan import collect_file_info
 from server_app.services.redis_queue import enqueue_scan, get_scan_result
 
@@ -28,10 +28,7 @@ async def get_files_list(request):
         )
         return web.Response(status=400)
 
-    if username.lower() not in state.AUTH_USERS:
-        await logger.debug(f'Ключ пользователя "{username}" невлидный!')
-        return web.Response(status=301)
-    if state.AUTH_USERS[username.lower()]["key"] != auth_key:
+    if not is_valid_auth(username, auth_key):
         await logger.debug(f'Ключ пользователя "{username}" невлидный!')
         return web.Response(status=301)
 

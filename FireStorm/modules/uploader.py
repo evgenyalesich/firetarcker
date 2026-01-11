@@ -236,6 +236,9 @@ class HTTP_Client():
             self.auto_upload_interval = 60
         if self.auto_upload_interval < 10:
             self.auto_upload_interval = 10
+        self._last_auth_refresh = 0.0
+        self._auth_refresh_cooldown = max(10, self.auto_upload_interval)
+        self._auth_refresh_lock = asyncio.Lock()
 
         with open("settings/user_data.json", "r") as file:
             self.user_data = json.load(file)
@@ -545,7 +548,7 @@ class HTTP_Client():
                 self.manager["color"] = "white"
                 timeout = 45
                 while True:
-                    files_on_server = await http_client.get_files(URL=self.file_server, route=self.route, username=self.username, room=room_name, auth_key=self.auth_key, session=self.session, timeout=timeout)
+                files_on_server = await http_client.get_files(URL=self.file_server, route=self.route, username=self.username, room=room_name, auth_key=self.auth_key, session=self.session, timeout=timeout)
 
                     # если потеряно соединение с сервером
                     if files_on_server == 200:
@@ -555,13 +558,13 @@ class HTTP_Client():
                         self.manager["progress"] = None
                         timeout += 45 # увеличиваем таймаут ожидания ответа
 
-                    elif files_on_server is None:
-                        # невалидный ключ
-                        if not await self.try_log_in():
-                            self.manager["color"] = "red"
-                            self.click_close(text="Ошибка при получении ключа аутентификации!\nПерезапустите программу!")
-                    elif files_on_server != 300:
-                        break
+                elif files_on_server is None:
+                    # невалидный ключ: обновляем не чаще, чем раз в cooldown
+                    refreshed = await self.refresh_auth_key()
+                    if not refreshed:
+                        await asyncio.sleep(self._auth_refresh_cooldown)
+                elif files_on_server != 300:
+                    break
 
                     # ждём 1 секунду
                     await asyncio.sleep(1)
@@ -682,32 +685,34 @@ class HTTP_Client():
         return True
 
 
-    async def try_log_in(self):
-        # попытка авторизации
-        while True:
+    async def refresh_auth_key(self):
+        now = time.monotonic()
+        if now - self._last_auth_refresh < self._auth_refresh_cooldown:
+            return False
+        async with self._auth_refresh_lock:
+            now = time.monotonic()
+            if now - self._last_auth_refresh < self._auth_refresh_cooldown:
+                return False
+            self._last_auth_refresh = now
             try:
-                status = await http_client.autorization(URL=self.server_url, \
-                    username=self.username, \
-                    password=self.password, \
-                    session=self.session, \
-                    time_offset=True)
-                # проверяем, залогинились-ли мы
+                status = await http_client.autorization(
+                    URL=self.server_url,
+                    username=self.username,
+                    password=self.password,
+                    session=self.session,
+                    time_offset=True,
+                )
                 if status[0] == 205:
-                    # если да - записываем ключ аутентификации от сервера
                     self.auth_key = status[-1]
-                    self.file_server = status[1] # адрес сервера для приёма файлов
+                    self.file_server = status[1]
                     self.route = status[2]
                     return True
-                # если сервер ответил, что не удалось залогиниться
-                else:
-                    self.manager["color"] = "red"
-                    self.click_close(text="Не удалось авторизоваться!\nОшибка подключения к серверу!\nПопробуйте ещё раз...")
-                # если не удалось авторизоваться
-                return None
-
+                self.manager["color"] = "red"
+                self.click_close(text="Не удалось авторизоваться!\nОшибка подключения к серверу!\nПопробуйте ещё раз...")
+                return False
             except aiohttp.ClientConnectorError as e:
                 print(f"Ошибка соединения с сервером: {e}")
-                return None
+                return False
 
     # функция принимает путь к папке, и возвращает список файлов в ней
     def find_files(self, path, date_from=None, date_to=None): #, size_limit=1024):

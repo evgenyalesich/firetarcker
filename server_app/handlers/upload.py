@@ -7,7 +7,7 @@ import aiofiles
 
 import modules.logger as logger
 from server_app import config, state
-from server_app.security import is_safe_component, normalize_relpath
+from server_app.security import is_safe_component, normalize_relpath, is_valid_auth
 from server_app.services.antivirus import scan_file_async, quarantine_file
 from server_app.services.redis_queue import enqueue_antivirus
 
@@ -50,10 +50,7 @@ async def handle_upload(request):
             )
             return web.Response(status=400)
 
-        if username.lower() not in state.AUTH_USERS:
-            await logger.debug(f'Ключ пользователя "{username}" невлидный!')
-            return web.Response(status=301)
-        if state.AUTH_USERS[username.lower()]["key"] != auth_key:
+        if not is_valid_auth(username, auth_key):
             await logger.debug(f'Ключ пользователя "{username}" невлидный!')
             return web.Response(status=301)
 

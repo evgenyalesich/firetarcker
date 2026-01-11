@@ -6,7 +6,7 @@ import modules.file_counter as file_counter
 import modules.db_manager as db_manager
 from server_app import config, state
 from server_app.security import get_real_ip
-from server_app.security import parse_structured_data
+from server_app.security import parse_structured_data, is_valid_auth
 
 
 async def update_send_date(request):
@@ -15,10 +15,9 @@ async def update_send_date(request):
         username = data.get("username")
         auth_key = data.get("auth_key")
 
-        if username.lower() in state.AUTH_USERS:
-            if state.AUTH_USERS[username.lower()]["key"] == auth_key:
-                await dashboard.update_send_date(username=username)
-                return web.Response(status=200)
+        if is_valid_auth(username, auth_key):
+            await dashboard.update_send_date(username=username)
+            return web.Response(status=200)
         await logger.debug(
             f"{username} не прошёл проверку ключа аутентификации, дата отправки обновлена не будет"
         )

@@ -5,22 +5,19 @@ import modules.db_manager as db_manager
 import modules.logger as logger
 import modules.dashboard as dashboard
 from server_app import config, state
-from server_app.security import get_real_ip
+from server_app.security import get_real_ip, is_valid_auth, register_auth_key
 
 
 async def get_server(request):
     try:
         data = await request.post()
         username = data.get("username")
-        route = state.AUTH_USERS[username.lower()]["route"]
-
         auth_key = data.get("auth_key")
-        if username.lower() not in state.AUTH_USERS:
+        user_entry = state.AUTH_USERS.get((username or "").lower())
+        if not user_entry or not is_valid_auth(username, auth_key):
             await logger.debug(f'Ключ пользователя "{username}" невлидный!')
             return web.Response(status=301)
-        if state.AUTH_USERS[username.lower()]["key"] != auth_key:
-            await logger.debug(f'Ключ пользователя "{username}" невлидный!')
-            return web.Response(status=301)
+        route = user_entry["route"]
 
         if route in state.SERVERS:
             if state.SERVERS[route]:
@@ -56,7 +53,7 @@ async def handle_login(request):
                     )
                 )
                 await logger.debug(f"Сгенерирован ключ аутентификации: {auth_key}")
-                state.AUTH_USERS[username.lower()] = {"key": auth_key, "route": route}
+                register_auth_key(username=username, route=route, auth_key=auth_key)
                 await logger.info(f"Авторизован юзер: {username}. Направление: {route}")
                 try:
                     await dashboard.set_launch_date(username=username, route=route)
@@ -93,7 +90,8 @@ async def get_key(request):
     await logger.debug(f"Запрос на проверку ключа юзера {username}")
     if username.lower() in state.AUTH_USERS:
         try:
-            key = state.AUTH_USERS[username.lower()]["key"]
+            keys = state.AUTH_USERS[username.lower()].get("keys")
+            key = keys[-1] if keys else state.AUTH_USERS[username.lower()].get("key")
             await logger.debug(f"Ключ {username} был успешно отправлен!")
             return web.Response(status=200, text=key)
         except Exception as error:
