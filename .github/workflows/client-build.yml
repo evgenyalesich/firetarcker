@@ -50,7 +50,13 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             echo "BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           else
-            echo "BUILD_VERSION=$(python -c 'from datetime import datetime; import os; print(f\"{datetime.now().strftime(\"%d.%m.%Y\")}.{os.environ.get(\"GITHUB_RUN_NUMBER\",\"0\")}\")')" >> "$GITHUB_ENV"
+            VERSION="$(python - <<'PY'
+from datetime import datetime
+import os
+print(f"{datetime.now().strftime('%d.%m.%Y')}.{os.environ.get('GITHUB_RUN_NUMBER','0')}")
+PY
+)"
+            echo "BUILD_VERSION=${VERSION}" >> "$GITHUB_ENV"
           fi
 
       - name: Compute build version (windows)
@@ -64,27 +70,24 @@ jobs:
           }
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Import GPG key (Ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu') && env.GPG_PRIVATE_KEY != ''
+      - name: Import GPG key
+        if: env.GPG_PRIVATE_KEY != ''
         shell: bash
         run: |
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            brew install gnupg
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            choco install gnupg -y
+          fi
           echo "${GPG_PRIVATE_KEY}" | gpg --batch --import
           if [[ -n "${GPG_KEY_ID}" ]]; then
             echo "GPG_KEY_ID=${GPG_KEY_ID}" >> $GITHUB_ENV
           fi
 
-      - name: Build client + update
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: Build client dist
         shell: bash
         run: |
-          SIGN_ARGS=""
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && -n "${GPG_PRIVATE_KEY}" ]]; then
-            SIGN_ARGS="--sign"
-            if [[ -n "${GPG_KEY_ID}" ]]; then
-              SIGN_ARGS="$SIGN_ARGS --gpg-key ${GPG_KEY_ID}"
-            fi
-          fi
-          python tools/autobuild.py --version "${{ env.BUILD_VERSION }}" $SIGN_ARGS
+          python tools/build_client.py --dist dist_client --version "${{ env.BUILD_VERSION }}"
 
       - name: Build installer (Linux)
         if: startsWith(matrix.os, 'ubuntu')
@@ -106,13 +109,23 @@ jobs:
         shell: pwsh
         run: ./tools/build_installer_windows.ps1 -Version $env:BUILD_VERSION
 
-      - name: Upload update artifacts (Ubuntu only)
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: Build update (per OS)
+        shell: bash
+        run: |
+          SIGN_ARGS=""
+          if [[ -n "${GPG_PRIVATE_KEY}" ]]; then
+            SIGN_ARGS="--sign"
+            if [[ -n "${GPG_KEY_ID}" ]]; then
+              SIGN_ARGS="$SIGN_ARGS --gpg-key ${GPG_KEY_ID}"
+            fi
+          fi
+          python tools/build_update.py --dist dist_client --version "${{ env.BUILD_VERSION }}" --app-dir dist $SIGN_ARGS
+
+      - name: Upload update artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firestorm-${{ matrix.os }}-${{ env.BUILD_VERSION }}
           path: |
-            dist_client/**
             update_*.zip
             update_*.zip.asc
 
@@ -124,18 +137,22 @@ jobs:
             dist_installer/**
 
       - name: Deploy update to VPS
-        if: startsWith(matrix.os, 'ubuntu') && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != '' && matrix.os != 'windows-latest'
         shell: bash
         run: |
+          PLATFORM="linux"
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            PLATFORM="mac"
+          fi
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
-          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/updates ${VPS_PATH}/installers/linux ${VPS_PATH}/installers/mac ${VPS_PATH}/installers/win"
-          rsync -av update_*.zip "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/"
+          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/updates/${PLATFORM} ${VPS_PATH}/installers/linux ${VPS_PATH}/installers/mac ${VPS_PATH}/installers/win"
+          rsync -av update_*.zip "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/${PLATFORM}/"
           if ls update_*.zip.asc >/dev/null 2>&1; then
-            rsync -av update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/"
+            rsync -av update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/${PLATFORM}/"
           fi
 
       - name: Deploy installer to VPS (Linux)
