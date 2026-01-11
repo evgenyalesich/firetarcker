@@ -180,24 +180,16 @@ class HTTP_Client():
         self.username = self.user_data["username"] # логин юзера
         self.password = self.user_data["password"] # пароль
 
-        self.manual_request = self.load_manual_request()
+        self.manual_request = None
         self.manual_mode = False
-        self.manual_include_existing = True
+        self.manual_include_existing = False
         self.manual_date_from = None
         self.manual_date_to = None
         self.manual_room = None
         self.manual_paths = []
 
-        if self.manual_request:
-            self.manual_mode = True
-            self.manual_room = self.manual_request.get("room")
-            self.manual_paths = [p for p in self.manual_request.get("paths", []) if p]
-            self.manual_include_existing = bool(self.manual_request.get("include_existing", True))
-            self.manual_date_from = self._parse_date(self.manual_request.get("date_from"))
-            self.manual_date_to = self._parse_date(self.manual_request.get("date_to"))
-
         # раз в 7 дней делаем проверку, что дефолтные пути есть и тречатся
-        if os.path.exists("settings/services.json") and not self.manual_mode:
+        if os.path.exists("settings/services.json"):
             self.manager["text"] = "Проверка стандартных путей румов"
             with open("settings/services.json", 'r') as file:
                 services = json.load(file)
@@ -211,8 +203,6 @@ class HTTP_Client():
             if self.services_data["services"][room]["folders"] != [] and self.services_data["services"][room]["track"]:
                 self.rooms[room] = self.services_data["services"][room]["folders"]
 
-        if self.manual_mode and self.manual_room and self.manual_paths:
-            self.rooms = {self.manual_room: self.manual_paths}
                 
         write_status("idle", "Ожидание отправки")
         asyncio.run(self.show_alert())
