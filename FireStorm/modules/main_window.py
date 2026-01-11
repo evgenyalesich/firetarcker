@@ -4,6 +4,8 @@ from tkinter import filedialog, messagebox
 import time
 import json
 import os
+import sys
+import subprocess
 import asyncio
 #
 import modules.views as views
@@ -523,7 +525,21 @@ class CustomListBox:
         if index == None:
             return
         if index >= 0 and index < len(self.items):
-            os.startfile(self.items[index])
+            path = self.items[index]
+            if not path:
+                return
+            try:
+                if sys.platform.startswith("win"):
+                    os.startfile(path)
+                elif sys.platform == "darwin":
+                    subprocess.run(["open", path], check=False)
+                else:
+                    subprocess.run(["xdg-open", path], check=False)
+            except Exception as e:
+                try:
+                    asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error=str(e)))
+                except:
+                    print("main_window не удалось отправить лог")
 
 
     def select_item(self, index):
