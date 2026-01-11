@@ -20,6 +20,14 @@ def add_dir_to_zip(zipf, directory, base_dir):
             zipf.write(file_path, rel)
 
 
+def add_dir_to_zip_with_prefix(zipf, directory, base_dir, prefix):
+    for root, _, files in os.walk(directory):
+        for name in files:
+            file_path = Path(root) / name
+            rel = file_path.relative_to(base_dir).as_posix()
+            zipf.write(file_path, f"{prefix}/{rel}")
+
+
 def sign_if_requested(zip_path, key_id=None):
     gpg = shutil.which("gpg")
     if not gpg:
@@ -41,6 +49,7 @@ def main():
     parser.add_argument("--version", default=None, help="Version string")
     parser.add_argument("--news", default=None, help="Path to news.txt")
     parser.add_argument("--dist", default="dist_client", help="Dist directory")
+    parser.add_argument("--app-dir", default=None, help="App directory to include under app/")
     parser.add_argument("--out", default=None, help="Output zip")
     parser.add_argument("--sign", action="store_true", help="Create GPG signature")
     parser.add_argument("--gpg-key", default=None, help="GPG key id/email")
@@ -60,6 +69,10 @@ def main():
 
     with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
         add_dir_to_zip(zipf, dist_dir, dist_dir)
+        if args.app_dir:
+            app_dir = Path(args.app_dir)
+            if app_dir.exists():
+                add_dir_to_zip_with_prefix(zipf, app_dir, app_dir, "app")
         if args.news:
             zipf.write(args.news, "news.txt")
         zipf.comment = version.encode("utf-8")
