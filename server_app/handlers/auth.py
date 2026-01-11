@@ -5,7 +5,12 @@ import modules.db_manager as db_manager
 import modules.logger as logger
 import modules.dashboard as dashboard
 from server_app import config, state
-from server_app.security import get_real_ip, is_valid_auth, register_auth_key
+from server_app.security import (
+    get_real_ip,
+    is_valid_auth,
+    register_auth_key,
+    get_auth_keys,
+)
 
 
 async def get_server(request):
@@ -37,23 +42,27 @@ async def handle_login(request):
         route = await db_manager.check_user(username)
         if route:
             if await db_manager.autorize_user(username=username, password=password):
-                auth_key = "".join(
-                    list(
-                        map(
-                            lambda sym: list(
-                                map(
-                                    chr,
-                                    list(range(48, 58))
-                                    + list(range(65, 91))
-                                    + list(range(97, 123)),
-                                )
-                            )[random.randint(0, 61)],
-                            list(range(16)),
+                existing_keys = get_auth_keys(username)
+                if existing_keys:
+                    auth_key = existing_keys[-1]
+                else:
+                    auth_key = "".join(
+                        list(
+                            map(
+                                lambda sym: list(
+                                    map(
+                                        chr,
+                                        list(range(48, 58))
+                                        + list(range(65, 91))
+                                        + list(range(97, 123)),
+                                    )
+                                )[random.randint(0, 61)],
+                                list(range(16)),
+                            )
                         )
                     )
-                )
-                await logger.debug(f"Сгенерирован ключ аутентификации: {auth_key}")
-                register_auth_key(username=username, route=route, auth_key=auth_key)
+                    await logger.debug(f"Сгенерирован ключ аутентификации: {auth_key}")
+                    register_auth_key(username=username, route=route, auth_key=auth_key)
                 await logger.info(f"Авторизован юзер: {username}. Направление: {route}")
                 try:
                     await dashboard.set_launch_date(username=username, route=route)
