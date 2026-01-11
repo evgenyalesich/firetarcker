@@ -14,8 +14,8 @@ import tempfile
 import zipfile
 
 
-def load_config():
-    config_path = os.path.join(os.getcwd(), "settings", "config.json")
+def load_config(base_dir):
+    config_path = os.path.join(base_dir, "settings", "config.json")
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -48,25 +48,37 @@ def verify_signature(archive_path, signature_path, public_key_path):
         )
         return verify_result.returncode == 0
 
-# Открываем архив
-config = load_config()
-require_signature = bool(config.get("require_signature", False))
-public_key_path = config.get("public_key_path", os.path.join("settings", "public.key"))
+base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+app_dir = os.getenv("FIRESTORM_APP_DIR")
+if not app_dir:
+    app_hint = os.path.join(base_dir, "app_dir.txt")
+    if os.path.isfile(app_hint):
+        try:
+            with open(app_hint, "r", encoding="utf-8") as file:
+                app_dir = file.read().strip() or None
+        except Exception:
+            app_dir = None
 
-if os.path.exists("update.zip"):
+# Открываем архив
+config = load_config(base_dir)
+require_signature = bool(config.get("require_signature", False))
+public_key_path = config.get("public_key_path", os.path.join(base_dir, "settings", "public.key"))
+
+update_zip = os.path.join(base_dir, "update.zip")
+if os.path.exists(update_zip):
     if require_signature:
-        sig_path = "update.zip.asc"
+        sig_path = update_zip + ".asc"
         if not os.path.exists(sig_path):
             print("Подпись обновления не найдена. Установка остановлена.")
             raise SystemExit(1)
-        if not verify_signature("update.zip", sig_path, public_key_path):
+        if not verify_signature(update_zip, sig_path, public_key_path):
             print("Подпись обновления невалидна. Установка остановлена.")
             raise SystemExit(1)
-    with zipfile.ZipFile('update.zip', 'r') as zip_ref:
-        # Извлекаем все файлы в текущую директорию
+    with zipfile.ZipFile(update_zip, 'r') as zip_ref:
+        # Извлекаем все файлы в папку данных
         for file in zip_ref.namelist():
             try:
-                zip_ref.extract(file, '.')
+                zip_ref.extract(file, base_dir)
             except:
                 print(f"Ошибка при извлечении файла: {file}. Пропускаем его.")
 
@@ -74,10 +86,27 @@ if os.path.exists("update.zip"):
         comment = zip_ref.comment.decode('utf-8')
 
     # Открываем файл 'ver' и записываем в него комментарий
-    with open('ver', 'w') as ver_file:
+    ver_path = os.path.join(base_dir, "ver")
+    if os.path.isdir(ver_path):
+        ver_path = os.path.join(ver_path, "ver")
+    with open(ver_path, 'w') as ver_file:
         ver_file.write(comment)
 
+    try:
+        os.remove(update_zip)
+    except Exception:
+        pass
+    if os.path.exists(update_zip + ".asc"):
+        try:
+            os.remove(update_zip + ".asc")
+        except Exception:
+            pass
+
 # Запускаем 'FireStorm'
-script_path = os.path.join(os.getcwd(), "FireStorm.py")
-python_path = sys.executable
-subprocess.Popen([python_path, script_path], shell=False)
+exe_name = "FireStorm.exe" if sys.platform.startswith("win") else "FireStorm"
+if app_dir and os.path.exists(os.path.join(app_dir, exe_name)):
+    subprocess.Popen([os.path.join(app_dir, exe_name)], shell=False)
+else:
+    script_path = os.path.join(base_dir, "FireStorm.py")
+    python_path = sys.executable
+    subprocess.Popen([python_path, script_path], shell=False)

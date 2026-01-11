@@ -132,17 +132,24 @@ class PokerCheckApp():
             if server_version == local_version:
                 print("Версия на сервере совпадает с локальной")
                 return
+            auto_update = False
+            try:
+                with open(os.path.join(os.getenv("FIRESTORM_BASE", os.getcwd()), "settings", "config.json"), "r") as file:
+                    cfg = json.load(file)
+                auto_update = bool(cfg.get("auto_update", False))
+            except Exception:
+                auto_update = False
             asyncio.run(http_client.send_log(URL=self.server_url, username="", error=f"Версия ПО пользователя: {self.version}", level='log'))
             if server_version == "":
                 print("Не обнаружено обновлений на сервере")
                 return
             # если версия на сервере отличается от нашей, то выводим окно для загрузки обновы
             if self._is_newer_version(server_version, self.version):
-                # если раскомментить, то при отказе от обновы и последующей загрузке лейаута софт вылетит
-                # temp_window = tk.Tk()
-                # temp_window.withdraw()
+                if auto_update:
+                    asyncio.run(http_client.send_log(URL=self.server_url, username="", error="Авто-обновление: загрузка начата", level='log'))
+                    self.get_update()
+                    return
                 response = messagebox.askyesno(title="FireStorm", message=f"Доступна новая версия ПО ({server_version}). Загрузить обновление?", icon=messagebox.QUESTION)
-                # temp_window.destroy()
                 if response == True:
                     asyncio.run(http_client.send_log(URL=self.server_url, username="", error="Пользователь начал загрузку обновления...", level='log'))
                     self.get_update()

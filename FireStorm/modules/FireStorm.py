@@ -14,7 +14,7 @@ def _prepare_paths():
         resource_dir = getattr(sys, "_MEIPASS", base_dir)
         data_dir = os.path.join(Path.home(), ".local", "share", "firestorm")
         os.makedirs(data_dir, exist_ok=True)
-        for name in ("settings", "layouts", "img", "ver"):
+        for name in ("settings", "layouts", "img", "ver", "update_installer.py"):
             src = os.path.join(resource_dir, name)
             dst = os.path.join(data_dir, name)
             if os.path.isdir(src) and not os.path.exists(dst):
@@ -26,6 +26,12 @@ def _prepare_paths():
         data_ver = os.path.join(data_dir, "ver")
         if os.path.isfile(resource_ver):
             shutil.copy2(resource_ver, data_ver)
+        # Remember install dir for updater restarts.
+        try:
+            with open(os.path.join(data_dir, "app_dir.txt"), "w", encoding="utf-8") as file:
+                file.write(base_dir)
+        except Exception:
+            pass
         os.chdir(data_dir)
     else:
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +43,7 @@ def _prepare_paths():
 
 base_dir, resource_dir, data_dir = _prepare_paths()
 os.environ["FIRESTORM_BASE"] = data_dir
+os.environ["FIRESTORM_APP_DIR"] = base_dir
 #
 import modules.app_gui as app_gui
 
