@@ -131,49 +131,71 @@ jobs:
           path: |
             dist_installer/**
 
-      - name: Deploy update to VPS
-        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != '' && matrix.os != 'windows-latest'
+  deploy_all:
+    name: Deploy updates/installers to VPS
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ secrets.VPS_HOST != '' && secrets.VPS_SSH_KEY != '' }}
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PATH: ${{ secrets.VPS_PATH }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Deploy artifacts to VPS
         shell: bash
         run: |
-          PLATFORM="linux"
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            PLATFORM="mac"
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
+          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/updates ${VPS_PATH}/updates/linux ${VPS_PATH}/updates/mac ${VPS_PATH}/updates/win ${VPS_PATH}/installers/linux ${VPS_PATH}/installers/mac ${VPS_PATH}/installers/win"
+
+          shopt -s nullglob globstar
+
+          linux_updates=(artifacts/firestorm-ubuntu-22.04-*/update_*.zip)
+          linux_sigs=(artifacts/firestorm-ubuntu-22.04-*/update_*.zip.asc)
+          mac_updates=(artifacts/firestorm-macos-latest-*/update_*.zip)
+          mac_sigs=(artifacts/firestorm-macos-latest-*/update_*.zip.asc)
+          win_updates=(artifacts/firestorm-windows-latest-*/update_*.zip)
+          win_sigs=(artifacts/firestorm-windows-latest-*/update_*.zip.asc)
+
+          if (( ${#linux_updates[@]} )); then
+            rsync -av "${linux_updates[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/linux/"
+            rsync -av "${linux_updates[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/"
           fi
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
-          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/updates/${PLATFORM} ${VPS_PATH}/installers/linux ${VPS_PATH}/installers/mac ${VPS_PATH}/installers/win"
-          rsync -av update_*.zip "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/${PLATFORM}/"
-          if ls update_*.zip.asc >/dev/null 2>&1; then
-            rsync -av update_*.zip.asc "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/${PLATFORM}/"
+          if (( ${#linux_sigs[@]} )); then
+            rsync -av "${linux_sigs[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/linux/"
+            rsync -av "${linux_sigs[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/"
+          fi
+          if (( ${#mac_updates[@]} )); then
+            rsync -av "${mac_updates[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/mac/"
+          fi
+          if (( ${#mac_sigs[@]} )); then
+            rsync -av "${mac_sigs[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/mac/"
+          fi
+          if (( ${#win_updates[@]} )); then
+            rsync -av "${win_updates[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/win/"
+          fi
+          if (( ${#win_sigs[@]} )); then
+            rsync -av "${win_sigs[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/updates/win/"
           fi
 
-      - name: Deploy installer to VPS (Linux)
-        if: startsWith(matrix.os, 'ubuntu') && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
-        shell: bash
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
-          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/installers/linux"
-          rsync -av dist_installer/linux/*.deb "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/linux/"
-
-      - name: Deploy installer to VPS (macOS)
-        if: matrix.os == 'macos-latest' && env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
-        shell: bash
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "${VPS_SSH_KEY}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
-          ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/installers/mac"
-          scp dist_installer/macos/*.dmg "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/mac/"
-
-      - name: Deploy installer to VPS (Windows)
-        if: false
-        run: echo "disabled"
+          linux_installers=(artifacts/firestorm-installer-ubuntu-22.04-*/**/*.deb)
+          mac_installers=(artifacts/firestorm-installer-macos-latest-*/**/*.dmg)
+          win_installers=(artifacts/firestorm-installer-windows-latest-*/**/*.exe)
+          if (( ${#linux_installers[@]} )); then
+            rsync -av "${linux_installers[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/linux/"
+          fi
+          if (( ${#mac_installers[@]} )); then
+            rsync -av "${mac_installers[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/mac/"
+          fi
+          if (( ${#win_installers[@]} )); then
+            rsync -av "${win_installers[@]}" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/installers/win/"
+          fi
