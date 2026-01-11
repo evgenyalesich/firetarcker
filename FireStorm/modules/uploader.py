@@ -18,6 +18,27 @@ import modules.paths_checker as path_checker
 base_dir = os.getenv("FIRESTORM_BASE", os.path.dirname(sys.argv[0]))
 os.chdir(base_dir)
 
+
+def _status_path():
+    return os.path.join(base_dir, "settings", "upload_status.json")
+
+
+def write_status(state, message, room=None, extra=None):
+    os.makedirs(os.path.join(base_dir, "settings"), exist_ok=True)
+    payload = {
+        "state": state,
+        "message": message,
+        "room": room,
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    if extra:
+        payload.update(extra)
+    try:
+        with open(_status_path(), "w", encoding="utf-8") as file:
+            json.dump(payload, file, ensure_ascii=True)
+    except Exception:
+        pass
+
 class Window():
     def __init__(self, size):
         self.manager = None
@@ -173,6 +194,7 @@ class HTTP_Client():
             if self.services_data["services"][room]["folders"] != [] and self.services_data["services"][room]["track"]:
                 self.rooms[room] = self.services_data["services"][room]["folders"]
                 
+        write_status("idle", "Ожидание отправки")
         asyncio.run(self.show_alert())
 
 
@@ -244,16 +266,19 @@ class HTTP_Client():
                 self.user_accept = False # согласился ли юзер продолжить
                 self.manager["text"] = "ВНИМАНИЕ!\nИспользование этой программы при любом запущенном клиенте\nрума ЗАПРЕЩЕНО!\n\nДля начала отправки нажмите мышкой в это окно."
                 self.manager["color"] = "white"
+                write_status("idle", "Ожидание подтверждения пользователя")
 
             elif server_version == 200 or server_version is None:
                 # если ошибка при запросе версии
                 self.manager["color"] = "red"
+                write_status("error", "Не удалось проверить обновления")
                 self.click_close(text="Не удалось проверить обновления! Проверьте интернет соединение и перезапустите программу!")
                 return
 
             elif server_version != self.version:
                 # если ошибка при запросе версии
                 self.manager["color"] = "red"
+                write_status("update", "Требуется обновление клиента")
                 self.click_close(text="Ваша версия ПО устарела!\nЗапустите FireStorm, и загрузите обновление для дальнейшей работы с программой!")
                 return
 
@@ -281,6 +306,7 @@ class HTTP_Client():
         if not self.username or not self.password:
             # Запускаем отправку в отдельном потоке, чтобы не блокировать окно
             self.manager["color"] = "red"
+            write_status("error", "Неверный логин или пароль")
             self.click_close(text="Неверный логин или пароль!\nЗапустите FireStorm и проверьте корректность учётных данных!")
             
             return
@@ -292,6 +318,7 @@ class HTTP_Client():
         if self.rooms == {}:
             await http_client.send_log(URL=self.server_url, username=self.username, error="У клиента неправильно заданы пути к рукам либо выключен трекинг!", session=self.session)
             self.manager["color"] = "red"
+            write_status("error", "Трекинг выключен или нет путей")
             self.click_close(text="Запустите FireStorm и проверьте правильность указанных путей к рукам!")
 
             return
@@ -306,6 +333,7 @@ class HTTP_Client():
 
         except aiohttp.ClientConnectorError:
             self.manager["color"] = "red"
+            write_status("error", "Не удалось подключиться к серверу")
             self.click_close(text="Не удалось авторизоваться!\nОшибка подключения к серверу!\nПопробуйте ещё раз...")
             return
 
@@ -318,6 +346,7 @@ class HTTP_Client():
                 self.route = status[2]
             else:
                 await http_client.send_log(URL=self.server_url, username=self.username, error=f"Клиент получил status при авторизации: {str(status)} [server={self.server_url}]!", session=self.session)
+                write_status("error", "Ошибка авторизации на сервере")
                 return
             
             try:
@@ -420,6 +449,7 @@ class HTTP_Client():
         if files:
             self.manager["text"] = "Начинаем отправку файлов на сервер..."
             self.manager["color"] = "white"
+            write_status("sending", "Идет отправка файлов")
         
             # если есть файлы, которые нужно отправить
             status = await self.send_files(files=files)
@@ -430,11 +460,14 @@ class HTTP_Client():
                 # если файлы отправлены, обновляем дату отправки на серваке
                 await http_client.update_send_date(URL=self.server_url, username=self.username, auth_key=self.auth_key, session=self.session)
                 # выводим юзеру инфу
+                total_sent = getattr(self, "_total_files", 0)
+                write_status("ok", f"Отправлено файлов: {total_sent}", extra={"files_sent": total_sent})
                 self.timer_close(text="Файлы отправлены!", timer=3, color="green")
         
         else:
             await http_client.update_send_date(URL=self.server_url, username=self.username, auth_key=self.auth_key, session=self.session)
             await http_client.send_log(URL=self.server_url, username=self.username, error="Не обнаружено файлов для передачи на сервер! Возможно, файлы были переданы ранее, неверно указан каталог с руками, либо файлов рук пока нет в указанном каталоге юзера!", level='log', session=self.session)
+            write_status("idle", "Нет новых файлов для отправки")
             self.timer_close(text="Не найдено новых файлов для отправки на сервер!", timer=5, color="yellow")
             return
 
@@ -450,6 +483,7 @@ class HTTP_Client():
                     total_files += len(item)
 
         self.manager['files_count'] = total_files
+        self._total_files = total_files
         
         # print(f'Всего нужно отправить файлов: {total_files}')
         

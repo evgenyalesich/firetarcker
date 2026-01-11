@@ -173,6 +173,17 @@ class MainWindow():
         self.tab_frame = tk.Frame(self.canvas, bg="#1E1E1E", highlightthickness=0)
         self.canvas.create_window(self.logo_image_tk.width()*1.2, self.height//8+(self.logo_image_tk.height()//8), window=self.tab_frame, anchor=tk.NW)
 
+    def read_upload_status(self):
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        status_path = os.path.join(base_dir, "settings", "upload_status.json")
+        if not os.path.exists(status_path):
+            return None
+        try:
+            with open(status_path, "r", encoding="utf-8") as file:
+                return json.load(file)
+        except Exception:
+            return None
+
     def add_tab_to_panel(self, name):
         # метод для добавления кнопки перехода к настройкам рума на панель слева
         text_id = self.canvas.create_text(self.logo_image_tk.width()//2,\
@@ -255,6 +266,9 @@ class Room:
         self.parent = parent
         self.tracking = True # флаг для отслеживания каталогов
         self.sub_canvas = tk.Canvas(frame, width=self.parent.width-self.parent.logo_image_tk.width()-75, height=self.parent.height-self.parent.logo_image_tk.height()-75, bg="#1E1E1E", borderwidth=0, relief="flat", highlightthickness=0)
+        self.status_id = None
+        self.status_text_id = None
+        self.status_tooltip = None
         self.create_elements()
 
     def create_elements(self):
@@ -287,6 +301,24 @@ class Room:
         x1, y1, x2, y2 = self.sub_canvas.bbox("text_track")
         self.sub_canvas.create_image(x2+self.parent.switch_on_image_tk.width()//2, self.parent.height//2, image=self.parent.switch_on_image_tk, anchor=tk.W, tags="track_switcher")
         self.sub_canvas.tag_bind("track_switcher", "<Button-1>", lambda event: self.switch_tracking())
+
+        # статус отправки файлов (индикатор + тултип)
+        sx1, sy1, sx2, sy2 = self.sub_canvas.bbox("track_switcher")
+        status_x = sx2 + 18
+        status_y = (sy1 + sy2) // 2
+        self.status_id = self.sub_canvas.create_oval(
+            status_x - 6, status_y - 6, status_x + 6, status_y + 6,
+            fill="#6c757d", outline=""
+        )
+        self.status_text_id = self.sub_canvas.create_text(
+            status_x + 10, status_y, text="Статус", font=("Arial", 10),
+            anchor=tk.W, fill="#bdbdbd"
+        )
+        self.sub_canvas.tag_bind(self.status_id, "<Enter>", self._status_enter)
+        self.sub_canvas.tag_bind(self.status_id, "<Leave>", self._status_leave)
+        self.sub_canvas.tag_bind(self.status_text_id, "<Enter>", self._status_enter)
+        self.sub_canvas.tag_bind(self.status_text_id, "<Leave>", self._status_leave)
+        self.refresh_status()
 
     def check_switcher(self):
         # обновляем положение переключателя
@@ -323,6 +355,7 @@ class Room:
         # Записываем обновленные данные обратно в файл
         with open('settings/services.json', 'w') as file:
             json.dump(data, file)
+        self.refresh_status()
 
 
     def choose_folder(self):
@@ -349,6 +382,70 @@ class Room:
                 child.pack_forget()
         
         # self.sub_canvas.pack()
+
+    def _status_enter(self, event):
+        info = self._get_status_info()
+        if not info:
+            return
+        self._status_leave(event)
+        tooltip = tk.Toplevel(self.sub_canvas)
+        tooltip.wm_overrideredirect(True)
+        tooltip.geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+        label = tk.Label(
+            tooltip,
+            text=info,
+            background="#1E1E1E",
+            foreground="white",
+            justify="left",
+            borderwidth=1,
+            relief="solid",
+            font=("Arial", 10),
+        )
+        label.pack()
+        self.status_tooltip = tooltip
+
+    def _status_leave(self, event):
+        if self.status_tooltip:
+            self.status_tooltip.destroy()
+            self.status_tooltip = None
+
+    def _get_status_info(self):
+        if not self.tracking:
+            return "Трекинг выключен"
+        status = self.parent.read_upload_status()
+        if not status:
+            return "Нет данных об отправке"
+        msg = status.get("message", "Нет данных")
+        ts = status.get("ts", "")
+        room = status.get("room")
+        parts = [msg]
+        if room:
+            parts.append(f"Рум: {room}")
+        if ts:
+            parts.append(f"Время: {ts}")
+        return "\n".join(parts)
+
+    def refresh_status(self):
+        if not self.status_id:
+            return
+        if not self.tracking:
+            color = "#6c757d"
+        else:
+            status = self.parent.read_upload_status() or {}
+            state = status.get("state")
+            if state == "ok":
+                color = "#2ecc71"
+            elif state == "sending":
+                color = "#3498db"
+            elif state == "update":
+                color = "#C71B74"
+            elif state == "error":
+                color = "#e74c3c"
+            else:
+                color = "#f1c40f"
+        self.sub_canvas.itemconfig(self.status_id, fill=color)
+        # обновляем каждые 3 секунды
+        self.sub_canvas.after(3000, self.refresh_status)
 
     def on_enter(self, tag_name, new_img):
         self.sub_canvas.itemconfig(tag_name, image=new_img)
