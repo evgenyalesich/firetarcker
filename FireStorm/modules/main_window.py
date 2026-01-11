@@ -119,12 +119,6 @@ class MainWindow():
             triangle_down = polygons.round_polygon(self.canvas, [x+5, x+13, x+21], [y-3+offset, y+6+offset, y-3+offset],\
             sharpness=1 , width=1, outline="#353535", fill="#353535")
 
-    def request_uploader_reload(self):
-        try:
-            self.parent.request_uploader_reload()
-        except Exception:
-            pass
-
             self.canvas.tag_bind(triangle_up, "<Enter>", lambda event: self.on_enter(event=event, tag=triangle_up))
             self.canvas.tag_bind(triangle_up, "<Leave>", lambda event: self.on_leave(event=event, tag=triangle_up))
             self.canvas.tag_bind(triangle_up, "<Button-1>", lambda event: self.on_mousewheel(event=None, delta=120))
@@ -132,6 +126,12 @@ class MainWindow():
             self.canvas.tag_bind(triangle_down, "<Enter>", lambda event: self.on_enter(event=event, tag=triangle_down))
             self.canvas.tag_bind(triangle_down, "<Leave>", lambda event: self.on_leave(event=event, tag=triangle_down))
             self.canvas.tag_bind(triangle_down, "<Button-1>", lambda event: self.on_mousewheel(event=None, delta=-120))
+
+    def request_uploader_reload(self):
+        try:
+            self.parent.request_uploader_reload()
+        except Exception:
+            pass
 
 
     # Обработчик события "Enter"
