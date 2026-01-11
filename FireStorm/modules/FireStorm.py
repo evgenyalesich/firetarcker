@@ -14,7 +14,7 @@ def _prepare_paths():
         resource_dir = getattr(sys, "_MEIPASS", base_dir)
         data_dir = os.path.join(Path.home(), ".local", "share", "firestorm")
         os.makedirs(data_dir, exist_ok=True)
-        for name in ("settings", "layouts", "img", "ver", "update_installer.py"):
+        for name in ("settings", "layouts", "img", "ver"):
             src = os.path.join(resource_dir, name)
             dst = os.path.join(data_dir, name)
             if os.path.isdir(src) and not os.path.exists(dst):

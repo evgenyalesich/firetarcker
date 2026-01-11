@@ -110,13 +110,15 @@ class PokerCheckApp():
                 # запускаем ПО для обновления софта
                 base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
                 app_dir = os.getenv("FIRESTORM_APP_DIR", base_dir)
-                script_path = os.path.join(base_dir, "update_installer.py")
-                if not os.path.exists(script_path):
+                script_path = os.path.join(app_dir, "_internal", "update_installer.py", "update_installer.py")
+                if not os.path.isfile(script_path):
+                    script_path = os.path.join(base_dir, "update_installer.py")
+                if not os.path.isfile(script_path):
                     script_path = os.path.join(app_dir, "update_installer.py")
-                if not os.path.exists(script_path):
-                    script_path = os.path.join(app_dir, "_internal", "update_installer.py", "update_installer.py")
-                if not os.path.exists(script_path):
+                if not os.path.isfile(script_path):
                     script_path = os.path.join(base_dir, "_internal", "update_installer.py", "update_installer.py")
+                if not os.path.isfile(script_path):
+                    raise FileNotFoundError("update_installer.py not found")
                 python_path = sys.executable
                 if sys.platform.startswith("win"):
                     pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
