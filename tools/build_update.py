@@ -31,8 +31,7 @@ def add_dir_to_zip_with_prefix(zipf, directory, base_dir, prefix):
 def sign_if_requested(zip_path, key_id=None):
     gpg = shutil.which("gpg")
     if not gpg:
-        print("WARN: gpg not found, skipping signature")
-        return None
+        raise RuntimeError("gpg not found; cannot sign update")
     cmd = [gpg, "--batch", "--yes", "--detach-sign", "--armor"]
     passphrase = os.getenv("GPG_PASSPHRASE")
     if passphrase:

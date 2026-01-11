@@ -30,7 +30,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk
+          sudo apt-get install -y python3-tk gnupg
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -64,6 +64,14 @@ jobs:
             $version = (Get-Date).ToString("dd.MM.yyyy") + "." + $env:GITHUB_RUN_NUMBER
           }
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Ensure signing secrets
+        shell: bash
+        run: |
+          if [[ -z "${GPG_PRIVATE_KEY}" ]]; then
+            echo "GPG_PRIVATE_KEY is required for signed updates." >&2
+            exit 1
+          fi
 
       - name: Import GPG key
         if: env.GPG_PRIVATE_KEY != ''
