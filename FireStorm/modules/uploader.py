@@ -253,6 +253,10 @@ class HTTP_Client():
         self.manual_room = None
         self.manual_paths = []
 
+        self._services_path = os.path.join(base_dir, "settings", "services.json")
+        self._services_mtime = 0.0
+        self._reload_flag_path = os.path.join(base_dir, "settings", "uploader.reload")
+
         # раз в 7 дней делаем проверку, что дефолтные пути есть и тречатся
         if os.path.exists("settings/services.json"):
             self.manager["text"] = "Проверка стандартных путей румов"
@@ -260,17 +264,50 @@ class HTTP_Client():
                 services = json.load(file)
             # если добавлены новые пути для отслеживания
             path_checker.run_check(tk.Tk(), services, False)
-        # открываем файл конфигурации сервисов
-        with open("settings/services.json", "r") as file:
-            self.services_data = json.load(file)
-        self.rooms = {} # имя рума - список путей к каталогам
-        for room in self.services_data["services"]:
-            if self.services_data["services"][room]["folders"] != [] and self.services_data["services"][room]["track"]:
-                self.rooms[room] = self.services_data["services"][room]["folders"]
+        self._load_services()
 
                 
         write_status("idle", "Ожидание отправки")
         asyncio.run(self.show_alert())
+
+    def _load_services(self):
+        if not os.path.exists(self._services_path):
+            self.services_data = {"services": {}}
+            self.rooms = {}
+            return False
+        try:
+            with open(self._services_path, "r") as file:
+                self.services_data = json.load(file)
+        except Exception:
+            self.services_data = {"services": {}}
+            self.rooms = {}
+            return False
+        self.rooms = {}
+        for room, cfg in self.services_data.get("services", {}).items():
+            if cfg.get("folders") and cfg.get("track"):
+                self.rooms[room] = cfg["folders"]
+        try:
+            self._services_mtime = os.path.getmtime(self._services_path)
+        except Exception:
+            self._services_mtime = 0.0
+        return True
+
+    def _reload_if_needed(self):
+        reload_now = False
+        if os.path.exists(self._reload_flag_path):
+            reload_now = True
+            try:
+                os.remove(self._reload_flag_path)
+            except Exception:
+                pass
+        try:
+            mtime = os.path.getmtime(self._services_path)
+            if mtime != self._services_mtime:
+                reload_now = True
+        except Exception:
+            pass
+        if reload_now:
+            self._load_services()
 
     def load_manual_request(self):
         manual_path = os.path.join(base_dir, "settings", "manual_upload.json")
@@ -531,6 +568,7 @@ class HTTP_Client():
             # self.manager["color"] = "red"
             # self.timer_close(text="Найден запущенный процесс рума!\nЗавершение работы программы!", timer=3)
             return
+        self._reload_if_needed()
 
         # если процессы из тех, что прописаны в файле, не запущены, то
         files = [] # список списков файлов, которые будем по итогу отправлять

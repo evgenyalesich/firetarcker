@@ -119,6 +119,12 @@ class MainWindow():
             triangle_down = polygons.round_polygon(self.canvas, [x+5, x+13, x+21], [y-3+offset, y+6+offset, y-3+offset],\
             sharpness=1 , width=1, outline="#353535", fill="#353535")
 
+    def request_uploader_reload(self):
+        try:
+            self.parent.request_uploader_reload()
+        except Exception:
+            pass
+
             self.canvas.tag_bind(triangle_up, "<Enter>", lambda event: self.on_enter(event=event, tag=triangle_up))
             self.canvas.tag_bind(triangle_up, "<Leave>", lambda event: self.on_leave(event=event, tag=triangle_up))
             self.canvas.tag_bind(triangle_up, "<Button-1>", lambda event: self.on_mousewheel(event=None, delta=120))
@@ -352,6 +358,7 @@ class Room:
                     self.parent.parent.start_uploader()
             except Exception:
                 pass
+            self.parent.request_uploader_reload()
         # вносим в json-файл изменения путей, если они были
         # Открываем JSON-файл и загружаем его содержимое
         with open('settings/services.json', 'r') as file:
@@ -384,6 +391,7 @@ class Room:
                 self.parent.parent.start_uploader()
         except Exception:
             pass
+        self.parent.request_uploader_reload()
 
     def active(self):
         # метод для активации вкладки (вызывается при нажатии ЛКМ)
@@ -528,6 +536,10 @@ class CustomListBox:
                 asyncio.run(http_client.send_log(URL=self.server_url, username=self.username, error=str(e)))
             except:
                 print("main_window не удалось отправить лог")
+        try:
+            self.parent.parent.request_uploader_reload()
+        except Exception:
+            pass
 
     def open_folder(self):
         # открываем каталог в проводнике

@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 # самописные модули
 import modules.http_client as http_client
@@ -212,6 +213,17 @@ class PokerCheckApp():
         except Exception as error:
             messagebox.showerror(title="FireStorm", message=f"Не удалось запустить отправку: {error}")
             return False
+
+    def request_uploader_reload(self):
+        base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
+        settings_dir = os.path.join(base_dir, "settings")
+        os.makedirs(settings_dir, exist_ok=True)
+        reload_path = os.path.join(settings_dir, "uploader.reload")
+        try:
+            with open(reload_path, "w", encoding="utf-8") as file:
+                file.write(str(time.time()))
+        except Exception:
+            pass
 
     
     def check_update(self):
