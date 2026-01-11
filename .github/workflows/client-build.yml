@@ -15,9 +15,6 @@ jobs:
         os: [ubuntu-22.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     env:
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_PATH: ${{ secrets.VPS_PATH }}
@@ -30,7 +27,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk gnupg
+          sudo apt-get install -y python3-tk
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -65,28 +62,6 @@ jobs:
           }
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Ensure signing secrets
-        shell: bash
-        run: |
-          if [[ -z "${GPG_PRIVATE_KEY}" ]]; then
-            echo "GPG_PRIVATE_KEY is required for signed updates." >&2
-            exit 1
-          fi
-
-      - name: Import GPG key
-        if: env.GPG_PRIVATE_KEY != ''
-        shell: bash
-        run: |
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            brew install gnupg
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            choco install gnupg -y
-          fi
-          echo "${GPG_PRIVATE_KEY}" | gpg --batch --import
-          if [[ -n "${GPG_KEY_ID}" ]]; then
-            echo "GPG_KEY_ID=${GPG_KEY_ID}" >> $GITHUB_ENV
-          fi
-
       - name: Build client dist
         shell: bash
         run: |
@@ -115,14 +90,7 @@ jobs:
       - name: Build update (per OS)
         shell: bash
         run: |
-          SIGN_ARGS=""
-          if [[ -n "${GPG_PRIVATE_KEY}" ]]; then
-            SIGN_ARGS="--sign"
-            if [[ -n "${GPG_KEY_ID}" ]]; then
-              SIGN_ARGS="$SIGN_ARGS --gpg-key ${GPG_KEY_ID}"
-            fi
-          fi
-          python tools/build_update.py --dist dist_client --version "${{ env.BUILD_VERSION }}" --app-dir dist $SIGN_ARGS
+          python tools/build_update.py --dist dist_client --version "${{ env.BUILD_VERSION }}" --app-dir dist
 
       - name: Upload update artifacts
         uses: actions/upload-artifact@v4
@@ -144,6 +112,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     env:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_PATH: ${{ secrets.VPS_PATH }}
@@ -152,6 +123,34 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Ensure signing secrets
+        shell: bash
+        run: |
+          if [[ -z "${GPG_PRIVATE_KEY}" ]]; then
+            echo "GPG_PRIVATE_KEY is required for signed updates." >&2
+            exit 1
+          fi
+
+      - name: Install GPG and sign updates
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg
+          echo "${GPG_PRIVATE_KEY}" | gpg --batch --import
+          GPG_ARGS=(--batch --yes --detach-sign --armor)
+          if [[ -n "${GPG_PASSPHRASE}" ]]; then
+            GPG_ARGS+=(--pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}")
+          fi
+          if [[ -n "${GPG_KEY_ID}" ]]; then
+            GPG_ARGS+=(--local-user "${GPG_KEY_ID}")
+          fi
+          shopt -s nullglob globstar
+          for zip in artifacts/**/update_*.zip; do
+            if [[ ! -f "${zip}.asc" ]]; then
+              gpg "${GPG_ARGS[@]}" "${zip}"
+            fi
+          done
 
       - name: Deploy artifacts to VPS
         if: ${{ env.VPS_HOST != '' && env.VPS_SSH_KEY != '' }}
