@@ -21,10 +21,10 @@ def _prepare_paths():
                 shutil.copytree(src, dst)
             elif os.path.isfile(src) and not os.path.exists(dst):
                 shutil.copy2(src, dst)
-        # Always refresh version file from packaged resources.
+        # Keep local version if already updated; only seed on first run.
         resource_ver = os.path.join(resource_dir, "ver")
         data_ver = os.path.join(data_dir, "ver")
-        if os.path.isfile(resource_ver):
+        if os.path.isfile(resource_ver) and not os.path.exists(data_ver):
             shutil.copy2(resource_ver, data_ver)
         # Remember install dir for updater restarts.
         try:
