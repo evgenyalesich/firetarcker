@@ -1,0 +1,167 @@
+<html>
+    <head>
+        <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+        <link rel="stylesheet" type="text/css" href="/static/css/styles.css" />
+        <title>Пользователи</title>
+    </head>
+    <body>
+      <div class="tabs">
+        <div class="logout-button-container">
+          <a href="/logout" class="logout-button tablinks">Logout</a>
+        </div>
+        <button class="tablinks" id="dashboard-btn" onclick="openTab(event, 'dashboard')">Dashboard</button>
+
+        <!-- Только для админа показываем вкладку Logs -->
+        <button class="tablinks" onclick="openTab(event, 'logs')">Logs</button>
+
+        <button class="tablinks" onclick="openTab(event, 'container')">Users Manager</button>
+      </div>
+
+      <div id="dashboard" class="tabcontent">
+            <div class="dashboard_table">
+                <div class="top-bar">
+                    <!-- Календарик -->
+                    <input type="date" id="date_from" class="custom-date-selector">
+                    <input type="date" id="date_to" class="custom-date-selector">
+
+                    <table id="users_table_headers" border="1">
+                        <tr>
+                            <th>Num</th>
+                            <th class="sortable" onclick="sortTable(1)">Username</th>
+                            <th class="sortable" onclick="sortTable(2, false, true)">Timezone</th>
+                            <th>
+                              <select id="route_filter" class="custom-select">
+                                <option value="">All Routes</option>
+                                  {% for route in route_options %}
+                                <option value="{{ route }}">{{ route }}</option>
+                                  {% endfor %}
+                              </select>
+                            </th>
+                            <th class="sortable" onclick="sortTable(4, false, true)">Last Launch</th>
+                            <th class="sortable" onclick="sortTable(5, false, true)">Last Send</th>
+                            <th>Room</th>
+                            <th class="sortable" onclick="sortTable(7, true)">Files</th>
+                        </tr>
+                    </table> 
+                </div>
+
+                <br>
+                <table id="users_table" border="1">
+                    {% for gamer in gamers %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ gamer.username }}</td>
+                        <td>{{ gamer.timezone }}</td>
+                        <td>{{ gamer.route }}</td>
+                        <td>{{ gamer.last_launch }}</td>
+                        <td class="last-send-cell" data-user-id="{{ gamer.id }}">{{ gamer.last_send }}</td>
+                              <td>
+                                  {% if gamer.rooms|length > 1 %}
+                                      <select class="room-select" data-user-id="{{ gamer.id }}" onchange="updateFiles(this, '{{ gamer.id }}')">
+                                          <option value="">All Rooms</option>
+                                          {% for room in gamer.rooms %}
+                                          <option value="{{ room }}">{{ room }}</option>
+                                          {% endfor %}
+                                      </select>
+                                  {% elif gamer.rooms %}
+                                      {{ gamer.rooms[0] }}
+                                  {% else %}
+                                      No Rooms
+                                  {% endif %}
+                              </td>
+                              <td class="files-cell" data-user-id="{{ gamer.id }}">{{ gamer.total_files }}</td>
+                          </tr>
+                    {% endfor %}
+                </table>
+            </div>
+      </div>
+
+      <div id="logs" class="tabcontent">
+          <textarea id="debug_log" class="log-window"></textarea>
+          <textarea id="info_log" class="log-window"></textarea>
+          <textarea id="request_log" class="log-window"></textarea>
+          <textarea id="error_log" class="log-window"></textarea>
+      </div>
+
+
+
+    <div id="container" class="tabcontent user-manager">
+    
+      <form id="userForm" class="form-inline user-manager-form">
+        <input class="form-control mr-sm-2" type="text" placeholder="Username" name="username" required>
+        <input class="form-control mr-sm-2" type="text" placeholder="Password" name="password" required>
+        <select class="form-control mr-sm-2" name="route">
+            <option value="MTT">MTT</option>
+            <option value="SPIN">SPIN</option>
+            <option value="HOLDEM">HOLDEM</option>
+            <option value="POKERHUB">POKERHUB</option>
+            <option value="PLO">PLO</option>
+            <option value="ANOTHER">ANOTHER</option>
+        </select>
+        <button class="btn btn-outline-success" type="submit">Add User</button>
+    </form>
+      <input class="form-control search-user" id="search-user" type="text" placeholder="Search by username...">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Password</th>
+                    <th>Route</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in gamers %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.password }}</td>
+                    <td>{{ user.route }}</td>
+                    <td>
+                        <button onclick="openEditModal(${user.id}, '${user.username}', '${user.password}', '${user.route}')" class="btn btn-primary btn-sm">Update</button>
+
+                        <button onclick="deleteUser('{{ user.username }}')" class="btn btn-danger btn-sm">Delete</button>
+
+
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <form id="editForm">
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    Username: <input type="text" id="edit-username" class="form-input">
+                </div>
+                <div class="form-group">
+                    Password: <input type="text" id="edit-password" class="form-input">
+                </div>
+                <div class="form-group">
+                    <select id="edit-route" class="form-input">
+                        <option value="MTT">MTT</option>
+                        <option value="SPIN">SPIN</option>
+                        <option value="HOLDEM">HOLDEM</option>
+                        <option value="POKERHUB">POKERHUB</option>
+                        <option value="PLO">PLO</option>
+                        <option value="ANOTHER">ANOTHER</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="button" onclick="saveUser()" class="form-button">Save</button>
+                    <button type="button" onclick="closeModal()" class="form-button">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/scripts.js"></script>
+    <script>
+      var role = {{ role|tojson }};
+    </script>
+
+    </body>
+</html>

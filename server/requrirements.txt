@@ -1,0 +1,10 @@
+aiohttp==3.8.4
+aiofiles==22.1.0
+aioconsole==0.6.1
+colorama==0.4.6
+asyncpg==0.29.0
+requests
+aiohttp_session
+aiohttp_jinja2
+jinja2
+cryptography

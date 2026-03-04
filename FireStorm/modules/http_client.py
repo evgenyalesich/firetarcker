@@ -3,6 +3,7 @@ import os
 import time
 import aiohttp
 import asyncio
+import sys
 #
 
 
@@ -24,6 +25,14 @@ def get_utc_offset():
     offset_string = f"UTC{sign}{abs(int(offset_hours)):02}:{abs(int(offset_minutes)):02}"
     
     return offset_string
+
+
+def get_platform():
+    if sys.platform.startswith("win"):
+        return "win"
+    if sys.platform == "darwin":
+        return "mac"
+    return "linux"
 
 async def upload_file(client, filename, room, semaphore, lock, sub_dirs=""):
     """
@@ -312,6 +321,7 @@ async def check_update(URL, session=None):
     # сервер возвращает номер версии и ссылку для загрузки
     url = f'{URL}/checkupdate_v2'
     data = aiohttp.FormData()
+    data.add_field('platform', get_platform())
 
     # 10 попыток соединения
     for attempt in range(10):
@@ -338,6 +348,7 @@ async def get_update(URL, bar, version=None):
     data = aiohttp.FormData()
     if version:
         data.add_field('version', version)
+    data.add_field('platform', get_platform())
     async with aiohttp.ClientSession() as session:
         async with session.post(url, data=data) as response:
             if response.status == 200:

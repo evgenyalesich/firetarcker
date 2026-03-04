@@ -48,6 +48,37 @@ def verify_signature(archive_path, signature_path, public_key_path):
         )
         return verify_result.returncode == 0
 
+
+def safe_extract(zip_ref, member, target_dir):
+    target_dir = os.path.abspath(target_dir)
+    dest_path = os.path.abspath(os.path.join(target_dir, member))
+    if not dest_path.startswith(target_dir + os.sep) and dest_path != target_dir:
+        raise ValueError(f"Unsafe path in archive: {member}")
+    zip_ref.extract(member, target_dir)
+    return dest_path
+
+
+def get_app_target(app_dir):
+    if not app_dir:
+        return None
+    app_dir = os.path.abspath(app_dir)
+    if sys.platform == "darwin" and app_dir.endswith(os.path.join("Contents", "MacOS")):
+        return os.path.abspath(os.path.join(app_dir, "..", ".."))
+    return app_dir
+
+
+def allowed_app_item(name):
+    allowed = {
+        "FireStorm",
+        "FireStorm.exe",
+        "FireStormUploader",
+        "FireStormUploader.exe",
+        "_internal",
+        "FireStorm.app",
+        "FireStormUploader.app",
+    }
+    return name in allowed
+
 base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
 app_dir = os.getenv("FIRESTORM_APP_DIR")
 if not app_dir:
@@ -63,6 +94,7 @@ if not app_dir:
 config = load_config(base_dir)
 require_signature = bool(config.get("require_signature", False))
 public_key_path = config.get("public_key_path", os.path.join(base_dir, "settings", "public.key"))
+allow_app_update = bool(config.get("allow_app_update", False))
 
 update_zip = os.path.join(base_dir, "update.zip")
 if os.path.exists(update_zip):
@@ -74,13 +106,43 @@ if os.path.exists(update_zip):
         if not verify_signature(update_zip, sig_path, public_key_path):
             print("Подпись обновления невалидна. Установка остановлена.")
             raise SystemExit(1)
+    app_target = get_app_target(app_dir) if allow_app_update else None
     with zipfile.ZipFile(update_zip, 'r') as zip_ref:
-        # Извлекаем все файлы в папку данных
+        app_items = []
         for file in zip_ref.namelist():
+            if file.startswith("app/"):
+                app_items.append(file)
+                continue
             try:
-                zip_ref.extract(file, base_dir)
-            except:
+                safe_extract(zip_ref, file, base_dir)
+            except Exception:
                 print(f"Ошибка при извлечении файла: {file}. Пропускаем его.")
+
+        if allow_app_update and app_target and app_items:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                for file in app_items:
+                    try:
+                        safe_extract(zip_ref, file, tmp_dir)
+                    except Exception:
+                        print(f"Ошибка при извлечении app-файла: {file}. Пропускаем его.")
+                app_root = os.path.join(tmp_dir, "app")
+                if os.path.isdir(app_root):
+                    for name in os.listdir(app_root):
+                        if not allowed_app_item(name):
+                            continue
+                        src_path = os.path.join(app_root, name)
+                        dst_path = os.path.join(app_target, name)
+                        if os.path.isdir(dst_path):
+                            shutil.rmtree(dst_path)
+                        if os.path.isdir(src_path):
+                            shutil.copytree(src_path, dst_path)
+                        else:
+                            shutil.copy2(src_path, dst_path)
+                        if not sys.platform.startswith("win") and name in ("FireStorm", "FireStormUploader"):
+                            try:
+                                os.chmod(dst_path, 0o755)
+                            except Exception:
+                                pass
 
         # Получаем комментарий архива
         comment = zip_ref.comment.decode('utf-8')

@@ -8,6 +8,23 @@ import shutil
 from pathlib import Path
 #
 # устанавливаем путь к папке с софтом
+def _parse_version_key(value):
+    value = str(value or "").strip()
+    if not value:
+        return None
+    parts = value.split(".")
+    if len(parts) < 3:
+        return None
+    try:
+        day = int(parts[0])
+        month = int(parts[1])
+        year = int(parts[2])
+        build = int(parts[3]) if len(parts) > 3 else 0
+    except ValueError:
+        return None
+    return (year, month, day, build)
+
+
 def _prepare_paths():
     if getattr(sys, "frozen", False):
         base_dir = os.path.dirname(sys.executable)
@@ -24,8 +41,57 @@ def _prepare_paths():
         # Keep local version if already updated; only seed on first run.
         resource_ver = os.path.join(resource_dir, "ver")
         data_ver = os.path.join(data_dir, "ver")
-        if os.path.isfile(resource_ver) and not os.path.exists(data_ver):
-            shutil.copy2(resource_ver, data_ver)
+        if os.path.isfile(resource_ver):
+            update_ver = False
+            if not os.path.exists(data_ver):
+                update_ver = True
+            else:
+                try:
+                    with open(resource_ver, "r", encoding="utf-8") as file:
+                        resource_val = file.readline().strip()
+                    with open(data_ver, "r", encoding="utf-8") as file:
+                        data_val = file.readline().strip()
+                except Exception:
+                    resource_val = ""
+                    data_val = ""
+                resource_key = _parse_version_key(resource_val)
+                data_key = _parse_version_key(data_val)
+                if resource_key is not None and data_key is not None:
+                    update_ver = resource_key > data_key
+                elif resource_val and resource_val != data_val:
+                    # Fallback: sync to packaged version if parsing fails.
+                    update_ver = True
+            if update_ver:
+                shutil.copy2(resource_ver, data_ver)
+        # Merge new config defaults; update server only if it was default legacy.
+        try:
+            res_cfg = os.path.join(resource_dir, "settings", "config.json")
+            data_cfg = os.path.join(data_dir, "settings", "config.json")
+            if os.path.isfile(res_cfg):
+                with open(res_cfg, "r", encoding="utf-8") as file:
+                    res_data = json.load(file)
+                if not os.path.exists(data_cfg):
+                    shutil.copy2(res_cfg, data_cfg)
+                else:
+                    with open(data_cfg, "r", encoding="utf-8") as file:
+                        data_data = json.load(file)
+                    changed = False
+                    for key, value in res_data.items():
+                        if key not in data_data:
+                            data_data[key] = value
+                            changed = True
+                    legacy_servers = {
+                        "https://s1.firestorm.team",
+                        "http://s1.firestorm.team",
+                    }
+                    if data_data.get("server") in legacy_servers and res_data.get("server"):
+                        data_data["server"] = res_data["server"]
+                        changed = True
+                    if changed:
+                        with open(data_cfg, "w", encoding="utf-8") as file:
+                            json.dump(data_data, file, ensure_ascii=False)
+        except Exception:
+            pass
         # Remember install dir for updater restarts.
         try:
             with open(os.path.join(data_dir, "app_dir.txt"), "w", encoding="utf-8") as file:

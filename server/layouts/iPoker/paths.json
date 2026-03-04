@@ -1,0 +1,42 @@
+{
+"Background": {
+
+		}, 
+
+"Cloth color": {"table_12_4": [["Layout/Tables/0_1/0_1.png", "Layout/0_1.png"], 							["Layout/Tables/12_4/12_4.png", "Layout/12_4.png"]]
+		,
+		"table_12_4-1": [["Layout/Tables/0_1/0_1-1.png", "Layout/0_1.png"], 							["Layout/Tables/12_4/12_4-1.png", "Layout/12_4.png"]]
+		,
+		"table_12_4-2": [["Layout/Tables/0_1/0_1-2.png", "Layout/0_1.png"], 							["Layout/Tables/12_4/12_4-2.png", "Layout/12_4.png"]]
+		,
+		"table_12_4-3": [["Layout/Tables/0_1/0_1-3.png", "Layout/0_1.png"], 							["Layout/Tables/12_4/12_4-3.png", "Layout/12_4.png"]]
+		,
+		"table_12_4-4": [["Layout/Tables/0_1/0_1-4.png", "Layout/0_1.png"], 							["Layout/Tables/12_4/12_4-4.png", "Layout/12_4.png"]]
+		,
+		"table_12_4-5": [["Layout/Tables/0_1/0_1-5.png", "Layout/0_1.png"], 							["Layout/Tables/12_4/12_4-5.png", "Layout/12_4.png"]]
+		}, 
+
+"Back card": {
+		"back_1": [["Layout/Back/1.png", "Layout/Cards/100_1.png"]]
+		,
+		"back_2": [["Layout/Back/2.png", "Layout/Cards/100_1.png"]]
+		,
+		"back_3": [["Layout/Back/3.png", "Layout/Cards/100_1.png"]]
+		},	
+
+"Chips": {
+	"colour": [["Layout/Chips/colour", "Layout/Chips"]]
+	,
+	"gray": [["Layout/Chips/gray", "Layout/Chips"]]
+	}
+, 
+
+"Front card": {
+		"card_1": [["Layout/Cards/1", "Layout/Cards"]]
+		,
+		"card_2": [["Layout/Cards/2", "Layout/Cards"]]
+		,
+		"card_3": [["Layout/Cards/3", "Layout/Cards"]]
+		}
+
+}
