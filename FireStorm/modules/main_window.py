@@ -12,6 +12,15 @@ import modules.views as views
 import modules.http_client as http_client
 import modules.polygons as polygons 
 
+
+def open_path(path):
+    if sys.platform.startswith("win"):
+        os.startfile(path)
+        return
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    subprocess.run([opener, path], check=False)
+
+
 class MainWindow():
     def __init__(self, frame, parent, height, width):
         self.parent = parent
@@ -547,16 +556,8 @@ class CustomListBox:
         if index == None:
             return
         if index >= 0 and index < len(self.items):
-            path = self.items[index]
-            if not path:
-                return
             try:
-                if sys.platform.startswith("win"):
-                    os.startfile(path)
-                elif sys.platform == "darwin":
-                    subprocess.run(["open", path], check=False)
-                else:
-                    subprocess.run(["xdg-open", path], check=False)
+                open_path(self.items[index])
             except Exception as e:
                 try:
                     asyncio.run(http_client.send_log(URL=self.parent.parent.server_url, username=self.parent.parent.username, error=str(e)))

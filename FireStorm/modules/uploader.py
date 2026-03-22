@@ -21,6 +21,25 @@ base_dir = os.getenv("FIRESTORM_BASE", os.path.dirname(sys.argv[0]))
 os.chdir(base_dir)
 
 
+def set_window_icon(window):
+    if sys.platform.startswith("win"):
+        icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
+        if os.path.exists(icon_path):
+            try:
+                window.iconbitmap(icon_path)
+            except Exception as error:
+                print(f"Не удалось установить иконку окна: {error}")
+    else:
+        icon_path = os.path.join(base_dir, "img", "logo.png")
+        if os.path.exists(icon_path):
+            try:
+                icon_img = tk.PhotoImage(file=icon_path)
+                window.iconphoto(True, icon_img)
+                window._icon_img = icon_img
+            except Exception as error:
+                print(f"Не удалось установить иконку окна: {error}")
+
+
 def _pid_path():
     return os.path.join(base_dir, "settings", "uploader.pid")
 
@@ -111,22 +130,7 @@ class Window():
         self.root.geometry(f"{self.size}x{self.size}")
         self.root.resizable(False, False)
         self.root.title("Uploader")
-        if sys.platform.startswith("win"):
-            icon_path = os.path.join(base_dir, "img", "gui_icon.ico")
-            if os.path.exists(icon_path):
-                try:
-                    self.root.iconbitmap(icon_path)
-                except Exception:
-                    pass
-        else:
-            icon_path = os.path.join(base_dir, "img", "logo.png")
-            if os.path.exists(icon_path):
-                try:
-                    icon_img = tk.PhotoImage(file=icon_path)
-                    self.root.iconphoto(True, icon_img)
-                    self._icon_img = icon_img
-                except Exception:
-                    pass
+        set_window_icon(self.root)
         self.canvas = tk.Canvas(self.root, width=self.size, height=self.size, bg="#1E1E1E")
         self.canvas.bind("<Button-1>", self.mouse_click)
         self.canvas.pack()

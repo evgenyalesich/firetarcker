@@ -16,6 +16,8 @@ import shutil
 import zipfile
 from pathlib import Path
 import json
+import subprocess
+import sys
 
 
 import webbrowser
@@ -27,10 +29,11 @@ def get_desktop():
     # для определения пути к Desktop
 
     # определяем ОС
-    os_name = os.name
+    os_name = sys.platform
     print(f"ОС: {os_name}")
-    if os_name == "posix":
-        return None
+    if os_name == "darwin" or os_name.startswith("linux"):
+        desktop_path = Path.home() / "Desktop"
+        return str(desktop_path) if desktop_path.exists() else None
 
     try:
         from ctypes import wintypes, windll
@@ -50,6 +53,14 @@ def get_desktop():
     except Exception as error:
         print(f"Не удалось определить путь в Desktop: {error}")
         return None
+
+
+def open_path(path):
+    if sys.platform.startswith("win"):
+        os.startfile(path)
+        return
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    subprocess.run([opener, path], check=False)
 
 class Views():
     def __init__(self, parent, height, width):
@@ -676,22 +687,33 @@ class LayoutDownloader():
                     messagebox.showinfo("Успех!", "Лейаут загружен, но bat-файл не сгенерирован!")
                     return
 
-            # Определяем имя и содержимое bat-файла
-            bat_file_name = f'{self.name}_set_layout.bat'
-            bat_file_content = f'XCOPY "{os.path.normpath(os.path.join(os.getcwd(), extract_path))}" "{os.path.normpath(self.room_path)}" /e /y'
+            source_path = os.path.normpath(os.path.join(os.getcwd(), extract_path))
+            target_path = os.path.normpath(self.room_path)
+            if sys.platform.startswith("win"):
+                script_file_name = f"{self.name}_set_layout.bat"
+                script_content = f'XCOPY "{source_path}" "{target_path}" /e /y'
+            else:
+                script_file_name = f"{self.name}_set_layout.command" if sys.platform == "darwin" else f"{self.name}_set_layout.sh"
+                script_content = (
+                    "#!/bin/sh\n"
+                    f'mkdir -p "{target_path}"\n'
+                    f'cp -R "{source_path}/." "{target_path}/"\n'
+                )
 
-            # Создаем и записываем bat-файл на рабочий стол
-            bat_file_path = os.path.normpath(os.path.join(desktop_path, bat_file_name))
+            script_file_path = os.path.normpath(os.path.join(desktop_path, script_file_name))
 
-            with open(bat_file_path, 'w') as f:
-                f.write(bat_file_content)
+            with open(script_file_path, 'w') as f:
+                f.write(script_content)
 
-            print(f"Создан bat-файл: {bat_file_path}")
+            if not sys.platform.startswith("win"):
+                os.chmod(script_file_path, 0o755)
 
-            # запускаем созданный bat-файл
-            os.startfile(bat_file_path)
+            print(f"Создан файл установки лейаута: {script_file_path}")
 
-            messagebox.showinfo("Успех!", f"Лейаут загружен! На рабочем столе создан файл {self.name}_set_layout.bat для установки лейаута!")
+            # запускаем созданный скрипт
+            open_path(script_file_path)
+
+            messagebox.showinfo("Успех!", f"Лейаут загружен! На рабочем столе создан файл {script_file_name} для установки лейаута!")
         else:
             # распаковываем zip в папку рума
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
