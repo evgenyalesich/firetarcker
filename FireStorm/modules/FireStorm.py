@@ -122,6 +122,21 @@ def sha256_file(path):
     return h.hexdigest()
 
 
+def resolve_runtime_file(rel_path):
+    candidates = [
+        os.path.join(data_dir, rel_path),
+        os.path.normpath(rel_path),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+        if os.path.isdir(candidate):
+            nested = os.path.join(candidate, os.path.basename(rel_path))
+            if os.path.isfile(nested):
+                return nested
+    return candidates[0]
+
+
 def verify_manifest(required):
     manifest_path = os.path.join(data_dir, "manifest.json")
     if not os.path.exists(manifest_path):
@@ -138,9 +153,12 @@ def verify_manifest(required):
 
     files = manifest.get("files", {})
     for rel_path, expected in files.items():
-        file_path = os.path.normpath(rel_path)
+        file_path = resolve_runtime_file(rel_path)
         if not os.path.exists(file_path):
             print(f"Файл {rel_path} отсутствует. Запуск остановлен.")
+            return False
+        if os.path.isdir(file_path):
+            print(f"Файл {rel_path} имеет некорректный тип (директория). Запуск остановлен.")
             return False
         actual = sha256_file(file_path)
         if actual.lower() != str(expected).lower():
