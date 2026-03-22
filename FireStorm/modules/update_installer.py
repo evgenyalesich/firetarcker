@@ -79,6 +79,31 @@ def allowed_app_item(name):
     }
     return name in allowed
 
+
+def can_write_to_dir(path):
+    if not path or not os.path.isdir(path):
+        return False
+    probe_path = os.path.join(path, ".firestorm_write_test")
+    try:
+        with open(probe_path, "w", encoding="utf-8") as file:
+            file.write("ok")
+        os.remove(probe_path)
+        return True
+    except Exception:
+        return False
+
+
+def replace_path(src_path, dst_path):
+    if os.path.isdir(dst_path):
+        shutil.rmtree(dst_path)
+    elif os.path.exists(dst_path):
+        os.remove(dst_path)
+
+    if os.path.isdir(src_path):
+        shutil.copytree(src_path, dst_path)
+    else:
+        shutil.copy2(src_path, dst_path)
+
 base_dir = os.getenv("FIRESTORM_BASE", os.getcwd())
 app_dir = os.getenv("FIRESTORM_APP_DIR")
 if not app_dir:
@@ -107,6 +132,7 @@ if os.path.exists(update_zip):
             print("Подпись обновления невалидна. Установка остановлена.")
             raise SystemExit(1)
     app_target = get_app_target(app_dir) if allow_app_update else None
+    app_update_ok = True
     with zipfile.ZipFile(update_zip, 'r') as zip_ref:
         app_items = []
         for file in zip_ref.namelist():
@@ -119,40 +145,60 @@ if os.path.exists(update_zip):
                 print(f"Ошибка при извлечении файла: {file}. Пропускаем его.")
 
         if allow_app_update and app_target and app_items:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                for file in app_items:
-                    try:
-                        safe_extract(zip_ref, file, tmp_dir)
-                    except Exception:
-                        print(f"Ошибка при извлечении app-файла: {file}. Пропускаем его.")
-                app_root = os.path.join(tmp_dir, "app")
-                if os.path.isdir(app_root):
-                    for name in os.listdir(app_root):
-                        if not allowed_app_item(name):
-                            continue
-                        src_path = os.path.join(app_root, name)
-                        dst_path = os.path.join(app_target, name)
-                        if os.path.isdir(dst_path):
-                            shutil.rmtree(dst_path)
-                        if os.path.isdir(src_path):
-                            shutil.copytree(src_path, dst_path)
-                        else:
-                            shutil.copy2(src_path, dst_path)
-                        if not sys.platform.startswith("win") and name in ("FireStorm", "FireStormUploader"):
+            if not can_write_to_dir(app_target):
+                app_update_ok = False
+                print(
+                    f"Нет прав на обновление файлов приложения в '{app_target}'. "
+                    "Обновление бинарников пропущено."
+                )
+            else:
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    for file in app_items:
+                        try:
+                            safe_extract(zip_ref, file, tmp_dir)
+                        except Exception:
+                            print(f"Ошибка при извлечении app-файла: {file}. Пропускаем его.")
+                    app_root = os.path.join(tmp_dir, "app")
+                    if os.path.isdir(app_root):
+                        for name in os.listdir(app_root):
+                            if not allowed_app_item(name):
+                                continue
+                            src_path = os.path.join(app_root, name)
+                            dst_path = os.path.join(app_target, name)
                             try:
-                                os.chmod(dst_path, 0o755)
-                            except Exception:
-                                pass
+                                replace_path(src_path, dst_path)
+                            except PermissionError:
+                                app_update_ok = False
+                                print(
+                                    f"Нет прав на замену '{dst_path}'. "
+                                    "Обновление бинарников остановлено."
+                                )
+                                break
+                            except Exception as error:
+                                app_update_ok = False
+                                print(
+                                    f"Ошибка при обновлении '{dst_path}': {error}. "
+                                    "Обновление бинарников остановлено."
+                                )
+                                break
+                            if not sys.platform.startswith("win") and name in ("FireStorm", "FireStormUploader"):
+                                try:
+                                    os.chmod(dst_path, 0o755)
+                                except Exception:
+                                    pass
 
         # Получаем комментарий архива
         comment = zip_ref.comment.decode('utf-8')
 
     # Открываем файл 'ver' и записываем в него комментарий
-    ver_path = os.path.join(base_dir, "ver")
-    if os.path.isdir(ver_path):
-        ver_path = os.path.join(ver_path, "ver")
-    with open(ver_path, 'w') as ver_file:
-        ver_file.write(comment)
+    if app_update_ok:
+        ver_path = os.path.join(base_dir, "ver")
+        if os.path.isdir(ver_path):
+            ver_path = os.path.join(ver_path, "ver")
+        with open(ver_path, 'w') as ver_file:
+            ver_file.write(comment)
+    else:
+        print("Версия клиента не обновлена, потому что бинарники приложения не были заменены.")
 
     try:
         os.remove(update_zip)
